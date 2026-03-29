@@ -1,0 +1,363 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum FileType {
+  DRAWING
+  MARKDOWN
+}
+
+enum Permission {
+  VIEW
+  EDIT
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+}
+
+enum AiMessageRole {
+  SYSTEM
+  USER
+  ASSISTANT
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+
+  passwordHash  String?
+  name          String?
+  avatarUrl     String?
+  role          UserRole  @default(USER)
+  emailVerified Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  deletedAt     DateTime?
+
+  subscription        Subscription?
+  oauthAccounts       OAuthAccount[]
+  sessions            UserSession[]
+
+  ownedFiles          File[]               @relation("OwnedFiles")
+  collaborations      FileCollaborator[]
+  sentInvitations     FileInvitation[]     @relation("InvitationSender")
+  receivedInvitations FileInvitation[]     @relation("InvitationReceiver")
+  fileCopies          FileCopy[]           @relation("CopiedBy")
+
+  aiSessions          AiConversationSession[]
+  aiUsage             AiUsage[]
+
+  @@index([email])
+  @@index([deletedAt])
+}
+
+model OAuthAccount {
+  id             String    @id @default(cuid())
+  userId         String
+
+  provider       String
+  providerUserId String
+  accessToken    String?
+  refreshToken   String?
+  expiresAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
+}
+
+model UserSession {
+  id        String   @id @default(cuid())
+  userId    String
+
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+}
+
+model Plan {
+  id           String  @id @default(cuid())
+
+  name         String  @unique
+  displayName  String
+  description  String?
+
+  stripePriceIdMonthly String? @unique
+  stripePriceIdYearly  String? @unique
+
+  priceMonthlyUsdCents Int @default(0)
+  priceYearlyUsdCents  Int @default(0)
+
+  maxOwnedFiles           Int     @default(5)
+  maxStorageMb            Int     @default(50)
+
+  aiGenerationsPerMonth   Int     @default(10)
+
+  aiChatsPerMonth         Int     @default(50)
+
+  maxCollaboratorsPerFile Int     @default(2)
+
+  canSharePublicly Boolean @default(false)
+  canExportPdf     Boolean @default(false)
+  canInviteByEmail Boolean @default(false)
+
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subscriptions Subscription[]
+
+  @@index([name])
+  @@index([isActive])
+}
+
+model Subscription {
+  id     String @id @default(cuid())
+  userId String @unique
+  planId String
+
+  status       SubscriptionStatus @default(ACTIVE)
+
+  billingCycle String             @default("monthly")
+
+  stripeCustomerId     String? @unique
+  stripeSubscriptionId String? @unique
+
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+
+  cancelAtPeriodEnd  Boolean  @default(false)
+  cancelledAt        DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan Plan @relation(fields: [planId], references: [id])
+
+  @@index([userId])
+  @@index([stripeCustomerId])
+  @@index([status])
+}
+
+model File {
+  id           String    @id @default(cuid())
+  ownerId      String
+  title        String    @default("Untitled")
+  type         FileType  @default(DRAWING)
+  thumbnailUrl String?
+
+  sizeBytes    Int       @default(0)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  owner          User               @relation("OwnedFiles", fields: [ownerId], references: [id], onDelete: Cascade)
+  drawing        DrawingContent?
+
+  shareConfig    FileShareConfig?
+  collaborators  FileCollaborator[]
+  invitations    FileInvitation[]
+  aiSessions     AiConversationSession[]
+
+  copies         FileCopy[] @relation("OriginalFile")
+  copiedFrom     FileCopy?  @relation("CopiedFile")
+
+  @@index([ownerId])
+  @@index([type])
+  @@index([deletedAt])
+}
+
+model DrawingContent {
+  id       String @id @default(cuid())
+  fileId   String @unique
+
+  shapesJson   Json   @default("[]")
+  bgColor      String @default("#0d1117")
+  zoom         Float  @default(1)
+  panX         Float  @default(0)
+  panY         Float  @default(0)
+  canvasWidth  Int?
+  canvasHeight Int?
+
+  version     Int      @default(1)
+
+  schemaVersion Int    @default(1)
+  updatedAt   DateTime @updatedAt
+
+  file File @relation(fields: [fileId], references: [id], onDelete: Cascade)
+}
+
+model FileShareConfig {
+  id       String @id @default(cuid())
+  fileId   String @unique
+
+  slug     String @unique
+
+  isPublic         Boolean    @default(false)
+
+  publicPermission Permission @default(VIEW)
+
+  allowCopy        Boolean    @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  file File @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@index([slug])
+}
+
+model FileCollaborator {
+  id           String     @id @default(cuid())
+  fileId       String
+  userId       String
+  permission   Permission @default(VIEW)
+  addedByUserId String?
+  addedAt      DateTime   @default(now())
+
+  file File @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([fileId, userId])
+  @@index([fileId])
+  @@index([userId])
+}
+
+model FileInvitation {
+  id              String           @id @default(cuid())
+  fileId          String
+  invitedByUserId String
+  invitedEmail    String
+
+  invitedUserId   String?
+  permission      Permission       @default(VIEW)
+  status          InvitationStatus @default(PENDING)
+
+  token           String           @unique
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  createdAt       DateTime         @default(now())
+
+  file       File  @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  invitedBy  User  @relation("InvitationSender",   fields: [invitedByUserId], references: [id])
+  invitedUser User? @relation("InvitationReceiver", fields: [invitedUserId],  references: [id])
+
+  @@index([token])
+  @@index([fileId])
+  @@index([invitedEmail])
+  @@index([invitedUserId])
+  @@index([status])
+}
+
+model FileCopy {
+  id             String   @id @default(cuid())
+  originalFileId String
+  copiedFileId   String   @unique
+  copiedByUserId String
+  copiedAt       DateTime @default(now())
+
+  originalFile File @relation("OriginalFile", fields: [originalFileId], references: [id])
+  copiedFile   File @relation("CopiedFile",   fields: [copiedFileId],   references: [id], onDelete: Cascade)
+  copiedBy     User @relation("CopiedBy",     fields: [copiedByUserId], references: [id])
+
+  @@index([originalFileId])
+  @@index([copiedByUserId])
+}
+
+model AiConversationSession {
+  id      String  @id @default(cuid())
+  userId  String
+
+  fileId  String?
+
+  title   String  @default("New Chat")
+
+  summary String? @db.Text
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  file     File?      @relation(fields: [fileId], references: [id], onDelete: SetNull)
+
+  messages AiMessage[]
+
+  @@index([userId])
+  @@index([fileId])
+  @@index([deletedAt])
+}
+
+model AiMessage {
+  id        String        @id @default(cuid())
+
+  sessionId String
+  role      AiMessageRole
+
+  content   String        @db.Text
+
+  generatedShapesJson Json?
+
+  promptTokens     Int?
+  completionTokens Int?
+
+  modelId          String?
+
+  createdAt DateTime @default(now())
+
+  session AiConversationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([createdAt])
+}
+
+model AiUsage {
+  id               String   @id @default(cuid())
+  userId           String
+  year             Int
+
+  month            Int
+  generationsUsed  Int      @default(0)
+  chatsUsed        Int      @default(0)
+  updatedAt        DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, year, month])
+  @@index([userId])
+}

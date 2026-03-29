@@ -1,0 +1,41 @@
+import { Request, Response, NextFunction } from "express";
+import { APIError, HttpStatusCode } from "../../shared/api-error";
+import { AuthService } from "../../classes/AuthService";
+
+const authService = new AuthService();
+
+export const loginController = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+) => {
+    try {
+        const { email, password } = req.body;
+        if (!email || !password) {
+            throw new APIError({
+                message: "Email and password are required",
+                httpCode: HttpStatusCode.BAD_REQUEST,
+            });
+        }
+
+        const { user, token } = await authService.login(email, password);
+
+        res.status(200).json({
+            success: true,
+            message: "Login successful",
+            data: {
+                user,
+                token,
+            },
+        });
+    } catch (err: any) {
+        next(
+            err instanceof APIError
+                ? err
+                : new APIError({
+                    message: err.message || "Login failed",
+                    httpCode: HttpStatusCode.UNAUTHORIZED,
+                })
+        );
+    }
+};

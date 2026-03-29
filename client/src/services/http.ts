@@ -61,9 +61,15 @@ async function request<T>(
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      localStorage.removeItem("token");
+    }
+
     const errorBody = await response.json().catch(() => null);
+
     const message =
       errorBody?.message ?? `Request failed (${response.status})`;
+
     throw new Error(message);
   }
 
