@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import DrawingPad from "./pages/draw/Draw";
+import DrawingPadPage from "./pages/draw/Draw";
 import HomePage from "./pages/HomePage";
 import AuthForm from "./pages/user/Auth";
 import ProtectedRoute from "./components/Auth/ProtectedRoute";
@@ -13,7 +13,7 @@ function App() {
           path="/draw"
           element={
             <ProtectedRoute>
-              <DrawingPad />
+              <DrawingPadPage />
             </ProtectedRoute>
           }
         />
@@ -21,7 +21,7 @@ function App() {
           path="/draw/:fileId"
           element={
             <ProtectedRoute>
-              <DrawingPad />
+              <DrawingPadPage />
             </ProtectedRoute>
           }
         />

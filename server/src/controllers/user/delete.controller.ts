@@ -30,6 +30,7 @@ export const deleteAccountController = async (
     });
   } catch (err: any) {
     next(
+      err instanceof APIError ? err :
       new APIError({
         message: err.message || "Delete account failed",
         httpCode: HttpStatusCode.BAD_REQUEST,

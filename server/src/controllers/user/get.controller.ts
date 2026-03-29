@@ -31,6 +31,7 @@ export const getMeController = async (
     });
   } catch (err: any) {
     next(
+      err instanceof APIError ? err :
       new APIError({
         message: err.message || "Unauthorized",
         httpCode: HttpStatusCode.UNAUTHORIZED,

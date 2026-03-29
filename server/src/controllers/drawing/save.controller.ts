@@ -1,10 +1,11 @@
 // controllers/file.controller.ts
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import { FileSaveService } from "../../classes/FileSaveService";
+import { APIError, HttpStatusCode } from "../../shared/api-error";
 
 const fileSaveService = new FileSaveService();
 
-export const saveDrawing = async (req: Request, res: Response) => {
+export const saveDrawing = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = req.user!.id;
     const { fileId, ...data } = req.body;
@@ -33,9 +34,12 @@ export const saveDrawing = async (req: Request, res: Response) => {
       data: drawing,
     });
   } catch (error: any) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    next(
+      error instanceof APIError ? error :
+      new APIError({
+        message: error.message || "Failed to save file",
+        httpCode: HttpStatusCode.INTERNAL_SERVER,
+      })
+    );
   }
 };

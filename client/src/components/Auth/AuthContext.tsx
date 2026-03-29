@@ -33,7 +33,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const res = await http.private.get<ApiResponse<User>>("/user/me");
       setUser(res.data);
     } catch (err) {
-      console.error("Auth failed:", err);
       localStorage.removeItem("token");
       setUser(null);
     } finally {
