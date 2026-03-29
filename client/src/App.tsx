@@ -17,6 +17,15 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/draw/:fileId"
+          element={
+            <ProtectedRoute>
+              <DrawingPad />
+            </ProtectedRoute>
+          }
+        />
+
         <Route path="/login" element={<AuthForm />} />
       </Routes>
     </BrowserRouter>
