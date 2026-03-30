@@ -3,7 +3,7 @@ import { prisma } from "../lib/prisma";
 
 import crypto from "crypto";
 
-export class FileShareService {
+class FileShareService {
   async enablePublicLink(
     fileId: string,
     requesterId: string,
@@ -162,3 +162,5 @@ export class FileShareService {
     if (file.ownerId !== userId) throw new Error("Only the owner can perform this action");
   }
 }
+
+export const fileShareService = new FileShareService();

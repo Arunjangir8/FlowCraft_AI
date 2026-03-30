@@ -4,7 +4,7 @@ import crypto from "crypto";
 
 import { prisma } from "../lib/prisma";
 
-export class AuthService {
+class AuthService {
   async signup(email: string, password: string, name?: string) {
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) throw new Error("Email already in use");
@@ -79,6 +79,8 @@ export class AuthService {
     });
   }
 }
+
+export const authService = new AuthService();
 
 
 

@@ -1,9 +1,8 @@
 // controllers/file.controller.ts
 import { NextFunction, Request, Response } from "express";
-import { FileSaveService } from "../../classes/FileSaveService";
 import { APIError, HttpStatusCode } from "../../shared/api-error";
+import { fileSaveService } from "../../classes/FileSaveService";
 
-const fileSaveService = new FileSaveService();
 
 export const saveDrawing = async (req: Request, res: Response, next: NextFunction) => {
   try {

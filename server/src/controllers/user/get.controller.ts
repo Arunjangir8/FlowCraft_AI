@@ -1,8 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { APIError, HttpStatusCode } from "../../shared/api-error";
-import { AuthService } from "../../classes/AuthService";
+import { authService } from "../../classes/AuthService";
 
-const authService = new AuthService();
 
 export const getMeController = async (
   req: Request,

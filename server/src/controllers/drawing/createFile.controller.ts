@@ -1,23 +1,14 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../lib/prisma";
 import { APIError, HttpStatusCode } from "../../shared/api-error";
+import { fileSaveService } from "../../classes/FileSaveService";
 
 export const createFileController = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = req.user!.id;
     const { title } = req.body;
 
-    const file = await prisma.file.create({
-      data: {
-        ownerId: userId,
-        title: title ?? "Untitled",
-        type: "DRAWING",
-      },
-    });
-
-    await prisma.drawingContent.create({
-      data: { fileId: file.id },
-    });
+    const file = await fileSaveService.createFile(userId,"DRAWING", title);
 
     return res.status(201).json({ success: true, data: file });
   } catch (error: any) {

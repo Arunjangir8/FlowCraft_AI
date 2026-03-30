@@ -1,7 +1,7 @@
 import {  Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 
-export class FileCopyService {
+class FileCopyService {
   async copyFile(originalFileId: string, copiedByUserId: string, newTitle?: string) {
     const original = await prisma.file.findUnique({
       where: { id: originalFileId },
@@ -84,3 +84,5 @@ export class FileCopyService {
     });
   }
 }
+
+export const fileCopyService = new FileCopyService();

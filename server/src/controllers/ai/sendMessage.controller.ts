@@ -1,10 +1,9 @@
+import { fileSaveService } from '../../classes/FileSaveService';
 import { runDrawingAgent } from '../../lib/ai-agent';
 import { APIError, HttpStatusCode } from '../../shared/api-error';
 import { saveAiMessage } from '../../utils/functions';
-import { FileSaveService } from './../../classes/FileSaveService';
 import { Request, Response, NextFunction } from "express";
 
-const fileSaveService = new FileSaveService();
 
 export const sendMessage = async (req: Request, res: Response, next: NextFunction) => {
   try {

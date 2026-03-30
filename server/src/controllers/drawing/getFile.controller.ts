@@ -1,8 +1,6 @@
 import { NextFunction, Request, Response } from "express";
-import { FileSaveService } from "../../classes/FileSaveService";
 import { APIError, HttpStatusCode } from "../../shared/api-error";
-
-const fileSaveService = new FileSaveService();
+import { fileSaveService } from "../../classes/FileSaveService";
 
 export const getDrawing = async (req: Request, res: Response, next: NextFunction) => {
     try {

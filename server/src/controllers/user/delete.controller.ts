@@ -1,8 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { APIError, HttpStatusCode } from "../../shared/api-error";
-import { AuthService } from "../../classes/AuthService";
-
-const authService = new AuthService();
+import { authService } from "../../classes/AuthService";
 
 
 export const deleteAccountController = async (

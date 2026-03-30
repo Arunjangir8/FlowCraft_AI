@@ -1,7 +1,7 @@
 import {  SubscriptionStatus } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 
-export class SubscriptionService {
+class SubscriptionService {
   async getPlans() {
     return prisma.plan.findMany({
       where: { isActive: true },
@@ -75,3 +75,4 @@ export class SubscriptionService {
   }
 }
 
+export const subscriptionService = new SubscriptionService();
