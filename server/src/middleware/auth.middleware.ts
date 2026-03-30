@@ -1,7 +1,6 @@
-// middlewares/auth.middleware.ts
 import { Request, Response, NextFunction } from "express";
-import { prisma } from "../lib/prisma";
-import { AuthService } from "../classes/AuthService";
+import { APIError, HttpStatusCode } from "../shared/api-error";
+import { authService } from "../classes/AuthService";
 
 export const authMiddleware = async (
   req: Request,
@@ -9,19 +8,37 @@ export const authMiddleware = async (
   next: NextFunction
 ) => {
   try {
+    // Header first (all normal routes), query param fallback (SSE/EventSource)
     const authHeader = req.headers.authorization;
+    const queryToken = req.query.token as string | undefined;
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ message: "Unauthorized" });
+    const token = authHeader?.startsWith("Bearer ")
+      ? authHeader.split(" ")[1]
+      : queryToken;
+
+    if (!token) {
+      return next(new APIError({
+        message: "Unauthorized",
+        httpCode: HttpStatusCode.UNAUTHORIZED,
+      }));
     }
 
-    const token = authHeader.split(" ")[1];
+    const user = await authService.getUserFromToken(token);
 
-    const user = await AuthService.prototype.getUserFromToken(token);
+    if (!user) {
+      return next(new APIError({
+        message: "Invalid or expired token",
+        httpCode: HttpStatusCode.UNAUTHORIZED,
+      }));
+    }
 
     req.user = user;
     next();
+
   } catch (error) {
-    return res.status(401).json({ message: "Invalid or expired token" });
+    return next(new APIError({
+      message: "Invalid or expired token",
+      httpCode: HttpStatusCode.UNAUTHORIZED,
+    }));
   }
 };

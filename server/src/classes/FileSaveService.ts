@@ -5,8 +5,27 @@ class FileSaveService {
   async createFile(
     userId: string,
     type: "DRAWING" | "MARKDOWN",
-    title?: string
+    title?: string,
+    reuseBlank: boolean = true
   ) {
+    if (reuseBlank && type === "DRAWING") {
+      const existingBlank = await prisma.file.findFirst({
+        where: {
+          ownerId: userId,
+          type: "DRAWING",
+          title: "Untitled Drawing",
+          deletedAt: null,
+          drawing: {
+            shapesJson: { equals: [] },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        select: { id: true },
+      });
+
+      if (existingBlank) return existingBlank;
+    }
+
     return prisma.$transaction(async (tx) => {
       const file = await tx.file.create({
         data: {

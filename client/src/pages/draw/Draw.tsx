@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { http } from "../../services/http";
+import { env } from "../../config/env";
 import DrawingPad from "./Drawpad";
 import type { DrawShape, Point } from "./Drawpad";
 
@@ -13,23 +14,25 @@ export default function DrawingPadPage() {
     const _saved = (() => { try { return JSON.parse(localStorage.getItem(_localKey) ?? "{}"); } catch { return {}; } })();
     const _hasLocal = !!_saved.shapes?.length;
 
-    const [shapes,   setShapes]   = useState<DrawShape[]>(_saved.shapes   ?? []);
-    const [bgColor,  setBgColor]  = useState<string>     (_saved.bgColor  ?? "#0d1117");
-    const [zoom,     setZoom]     = useState<number>     (_saved.zoom     ?? 1);
-    const [pan,      setPan]      = useState<Point>      (_saved.pan      ?? { x: 0, y: 0 });
+    const [shapes,        setShapes]        = useState<DrawShape[]>(_saved.shapes  ?? []);
+    const [bgColor,       setBgColor]       = useState<string>     (_saved.bgColor ?? "#0d1117");
+    const [zoom,          setZoom]          = useState<number>     (_saved.zoom    ?? 1);
+    const [pan,           setPan]           = useState<Point>      (_saved.pan     ?? { x: 0, y: 0 });
     const [savedToast,    setSavedToast]    = useState(false);
     const [hasLocalCache, setHasLocalCache] = useState(!!_saved.shapes);
 
-    const canvasRef = useRef<HTMLCanvasElement | null>(null);
+    const canvasRef  = useRef<HTMLCanvasElement | null>(null);
     const shapesRef  = useRef(shapes);
     const bgColorRef = useRef(bgColor);
     const zoomRef    = useRef(zoom);
     const panRef     = useRef(pan);
+    const esRef      = useRef<EventSource | null>(null); // SSE connection
 
     useEffect(() => { shapesRef.current  = shapes;  }, [shapes]);
     useEffect(() => { bgColorRef.current = bgColor; }, [bgColor]);
     useEffect(() => { zoomRef.current    = zoom;    }, [zoom]);
     useEffect(() => { panRef.current     = pan;     }, [pan]);
+
     const persistLocal = useCallback((overrides?: Partial<{ shapes: DrawShape[]; bgColor: string; zoom: number; pan: Point }>) => {
         try {
             localStorage.setItem(_localKey, JSON.stringify({
@@ -40,6 +43,50 @@ export default function DrawingPadPage() {
             }));
         } catch {}
     }, [_localKey]);
+
+
+    useEffect(() => {
+        if (!fileId) return;
+
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        const params = new URLSearchParams({ token, fileId });
+        const url    = `${env.apiBaseUrl}/events?${params.toString()}`;
+        const es     = new EventSource(url);
+        esRef.current = es;
+
+        es.addEventListener("connected", (e) => {
+            console.log("[SSE] Connected", JSON.parse(e.data));
+        });
+
+        // AI agent finished — update canvas with generated shapes
+        es.addEventListener("ai:shapes_ready", (e) => {
+            const data = JSON.parse(e.data);
+            if (data.shapes?.length) {
+                setShapes(data.shapes);
+                persistLocal({ shapes: data.shapes });
+            }
+        });
+
+        // Another user in the same file updated the canvas
+        es.addEventListener("canvas:updated", (e) => {
+            const data = JSON.parse(e.data);
+            if (data.shapes?.length) {
+                setShapes(data.shapes);
+                persistLocal({ shapes: data.shapes });
+            }
+        });
+
+        es.onerror = () => {
+            console.warn("[SSE] Connection lost, browser will retry...");
+        };
+
+        return () => {
+            es.close();
+            esRef.current = null;
+        };
+    }, [fileId, persistLocal]);
 
     const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 

@@ -3,8 +3,21 @@
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
-    "dev": "tsx watch index.ts",
-    "start": "tsx index.ts"
+    "dev":                "cross-env NODE_ENV=development dotenv -e .env.local tsx watch index.ts",
+    "start":              "cross-env NODE_ENV=production  dotenv -e .env.local tsx index.ts",
+
+    "db:migrate":         "cross-env NODE_ENV=development dotenv -e .env.local prisma migrate dev",
+    "db:migrate:prod":    "cross-env NODE_ENV=production  dotenv -e .env.local prisma migrate deploy",
+    "db:migrate:reset":   "cross-env NODE_ENV=development dotenv -e .env.local prisma migrate reset",
+    "db:push":            "cross-env NODE_ENV=development dotenv -e .env.local prisma db push",
+    "db:pull":            "cross-env NODE_ENV=development dotenv -e .env.local prisma db pull",
+    "db:studio":          "cross-env NODE_ENV=development dotenv -e .env.local prisma studio",
+    "db:studio:prod":     "cross-env NODE_ENV=production  dotenv -e .env.local prisma studio",
+    "db:seed":            "cross-env NODE_ENV=development dotenv -e .env.local tsx prisma/seed.ts",
+    "db:generate":        "cross-env NODE_ENV=development dotenv -e .env.local prisma generate",
+    "db:format":          "prisma format",
+
+    "postinstall":        "prisma generate"
   },
   "keywords": [],
   "author": "",
@@ -17,7 +30,9 @@
     "@prisma/client": "^6.8.2",
     "axios": "^1.13.6",
     "bcryptjs": "^3.0.3",
+    "cross-env": "^7.0.3",
     "dotenv": "^17.3.1",
+    "dotenv-cli": "^7.3.0",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
     "langchain": "^1.2.37",
@@ -26,10 +41,14 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/express": "^5.0.3",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.12.0",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": "22.x"
   }
 }

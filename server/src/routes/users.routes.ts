@@ -4,15 +4,16 @@ import { signupController } from "../controllers/user/signup.controller";
 import { logoutController } from "../controllers/user/logout.controller";
 import { getMeController } from "../controllers/user/get.controller";
 import { deleteAccountController } from "../controllers/user/delete.controller";
+import { authMiddleware } from "../middleware/auth.middleware";
 
 const usersRouter = Router();
 
-usersRouter.get("/me", getMeController);
+usersRouter.get("/me", authMiddleware, getMeController);
 
 usersRouter.post("/sign-in", loginController);
 usersRouter.post("/sign-up", signupController);
-usersRouter.post("/logout", logoutController);
+usersRouter.post("/logout", authMiddleware, logoutController);
 
-usersRouter.delete("/account", deleteAccountController);
+usersRouter.delete("/account", authMiddleware ,deleteAccountController);
 
 export default usersRouter;
