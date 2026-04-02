@@ -54,7 +54,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       value={{
         user,
         loading,
-        refetchUser: fetchMe,
+        refetchUser: fetchMe, 
         logout,
       }}
     >
