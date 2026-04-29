@@ -131,7 +131,7 @@ export default function DrawingPadPage() {
         if (creatingFileRef.current) return;
         creatingFileRef.current = true;
         try {
-            const res = await http.private.post<any>(`/drawing/create`);
+            const res = await http.private.post<any>(`/drawing/create`, {});
             const newFileId = res?.data?.id ?? res?.id;
             if (!newFileId) { creatingFileRef.current = false; return; }
             navigate(`/draw/${newFileId}`, { replace: true });

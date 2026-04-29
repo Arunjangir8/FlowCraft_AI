@@ -238,13 +238,20 @@ export function getShapeAnchorPoints(shape: DrawShape): Record<AnchorSide, Point
 export function getNearestAnchor(shape: DrawShape, p: Point, threshold = 28): { anchor: AnchorSide; point: Point } | null {
     if (shape.type !== "rect" && shape.type !== "ellipse" && shape.type !== "diamond") return null;
     const anchors = getShapeAnchorPoints(shape);
-    let best: { anchor: AnchorSide; point: Point; d: number } | null = null;
+    let bestAnchor: AnchorSide | null = null;
+    let bestPoint: Point | null = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
     (Object.keys(anchors) as AnchorSide[]).forEach(k => {
         if (k === "center") return;
         const d = Math.hypot(p.x - anchors[k].x, p.y - anchors[k].y);
-        if (!best || d < best.d) best = { anchor: k, point: anchors[k], d };
+        if (d < bestDistance) {
+            bestAnchor = k;
+            bestPoint = anchors[k];
+            bestDistance = d;
+        }
     });
-    return best && best.d <= threshold ? { anchor: best.anchor, point: best.point } : null;
+    if (bestAnchor === null || bestPoint === null || bestDistance > threshold) return null;
+    return { anchor: bestAnchor, point: bestPoint };
 }
 
 export function findBindingTarget(shapes: DrawShape[], p: Point, excludeId?: number | string): { shape: DrawShape; anchor: AnchorSide; point: Point } | null {
@@ -712,7 +719,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
     const [rounded, setRounded] = useState(false);
     const [roundedRadius, setRoundedRadius] = useState(8);
     const [fontSize, setFontSize] = useState<number | "custom">(18);
-    const [customFontSize, setCustomFontSize] = useState<number>(24);
+    const [customFontSize] = useState<number>(24);
     const [, setUndoStack] = useState<DrawShape[][]>([]);
     const [, setRedoStack] = useState<DrawShape[][]>([]);
     const [preview, setPreview] = useState<DrawShape | null>(null);

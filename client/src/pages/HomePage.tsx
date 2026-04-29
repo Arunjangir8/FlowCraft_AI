@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { StatusCard } from "../components/common/StatusCard";
 import { getServerHealth } from "../services/health.api";
+import type { HealthResponse } from "../types/health";
 
 type UiState =
   | { kind: "idle" }
@@ -18,7 +19,7 @@ export default function HomePage() {
     const loadHealth = async () => {
       try {
         setState({ kind: "loading" });
-        const result = await getServerHealth();
+        const result: HealthResponse = await getServerHealth();
 
         if (!active) return;
 
