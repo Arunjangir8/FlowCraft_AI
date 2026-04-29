@@ -726,6 +726,8 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
     const [opacity, setOpacity] = useState(1);
     const [rounded, setRounded] = useState(false);
     const [roundedRadius, setRoundedRadius] = useState(8);
+    const [fontSize, setFontSize] = useState<number | "custom">(18);
+    const [customFontSize, setCustomFontSize] = useState<number>(24);
     const [, setUndoStack] = useState<DrawShape[][]>([]);
     const [, setRedoStack] = useState<DrawShape[][]>([]);
     const [preview, setPreview] = useState<DrawShape | null>(null);
@@ -878,13 +880,14 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
             pushHistory(stateRef.current.shapes);
             setShapes(s => {
                 const base = editingTextId ? s.filter(sh => sh.id !== editingTextId) : s;
-                return [...base, { id: uid(), type: "text" as ShapeType, x: ti.x, y: ti.y, text: val, color: ink, fontSize: 14 + strokeWidth * 2, opacity }];
+                const fs = editingTextId ? (s.find(sh => sh.id === editingTextId)?.fontSize ?? 18) : (fontSize === "custom" ? customFontSize : fontSize);
+                return [...base, { id: uid(), type: "text" as ShapeType, x: ti.x, y: ti.y, text: val, color: ink, fontSize: fs, opacity }];
             });
         } else if (editingTextId && !val) {
             pushHistory(stateRef.current.shapes); setShapes(s => s.filter(sh => sh.id !== editingTextId));
         }
         setTextInput(null); setTextVal(""); setEditingTextId(null);
-    }, [textInput, textVal, ink, strokeWidth, opacity, pushHistory, editingTextId, setShapes]);
+    }, [textInput, textVal, ink, opacity, pushHistory, editingTextId, setShapes, fontSize, customFontSize]);
 
     const openTextEdit = useCallback((shape: DrawShape) => {
         setEditingTextId(shape.id); setTextInput({ x: shape.x ?? 0, y: shape.y ?? 0 }); setTextVal(shape.text ?? "");
@@ -914,6 +917,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
     const updateSelectedSW = useCallback((w: number) => { if (!stateRef.current.selectedId) return; pushHistory(stateRef.current.shapes); setShapes(s => s.map(sh => sh.id === stateRef.current.selectedId ? { ...sh, strokeWidth: w } : sh)); }, [pushHistory, setShapes]);
     const updateSelectedRounded = useCallback((r: boolean) => { if (!stateRef.current.selectedId) return; pushHistory(stateRef.current.shapes); setShapes(s => s.map(sh => sh.id === stateRef.current.selectedId ? { ...sh, rounded: r } : sh)); }, [pushHistory, setShapes]);
     const updateSelectedRoundedRadius = useCallback((r: number) => { if (!stateRef.current.selectedId) return; pushHistory(stateRef.current.shapes); setShapes(s => s.map(sh => sh.id === stateRef.current.selectedId ? { ...sh, roundedRadius: r } : sh)); }, [pushHistory, setShapes]);
+    const updateSelectedFontSize = useCallback((s: number) => { if (!stateRef.current.selectedId) return; pushHistory(stateRef.current.shapes); setShapes(prev => prev.map(sh => { if (sh.id !== stateRef.current.selectedId) return sh; if (sh.type === "text") return { ...sh, fontSize: s }; if (isLabelEditableShape(sh)) return { ...sh, labelFontSize: s }; return sh; })); }, [pushHistory, setShapes]);
 
     // ------------------------------------------------------------------------
     // KEYBOARD
@@ -1441,7 +1445,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                 <div style={{
                     position: "absolute", bottom: 20, left: "50%", transform: "translateX(-50%)",
                     ...panelStyle, padding: "8px 12px", display: "flex", alignItems: "center", gap: 12, zIndex: 30,
-                    fontSize: 11, maxWidth: "calc(100vw - 40px)", flexWrap: "wrap", justifyContent: "center",
+                    fontSize: 11, maxWidth: "calc(100vw - 40px)",justifyContent: "center",
                 }}>
                     <span style={{ color: muted, textTransform: "uppercase", letterSpacing: "0.08em", fontSize: 10 }}>
                         {selShape ? `Selected · ${selShape.type}` : jdShape ? `Drew · ${jdShape.type}` : `Tool · ${tool}`}
@@ -1515,8 +1519,36 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                         </>
                     )}
 
+                    {/* Font Size */}
+                   {((tool === TOOLS.TEXT && !selShape) || (selShape?.type === "text") || (selShape && isLabelEditableShape(selShape))) && (() => {
+                        const currentSize = selShape ? (selShape.type === "text" ? selShape.fontSize : selShape.labelFontSize) ?? 18 : fontSize;
+                        const selectValue = (currentSize === 14 || currentSize === 18 || currentSize === 24) ? currentSize.toString() : "18";
+                        
+                        return (
+                            <>
+                                <Divider bg={safeBg} vertical/>
+                                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                    <span style={{ color: muted, fontSize: 10 }}>Font</span>
+                                    <select 
+                                        value={selectValue}
+                                        onChange={e => {
+                                            const num = parseInt(e.target.value);
+                                            if (selShape) updateSelectedFontSize(num);
+                                            else setFontSize(num);
+                                        }}
+                                        style={{ background: "transparent", color: ink, border: "none", fontSize: 11, cursor: "pointer", outline: "none" }}
+                                    >
+                                        <option value="14" style={{ color: "#000" }}>Small</option>
+                                        <option value="18" style={{ color: "#000" }}>Medium</option>
+                                        <option value="24" style={{ color: "#000" }}>Large</option>
+                                    </select>
+                                </div>
+                            </>
+                        );
+                    })()}
+
                     {/* Label edit shortcut */}
-                    {selShape && isLabelEditableShape(selShape) && (
+                    {/* {selShape && isLabelEditableShape(selShape) && (
                         <>
                             <Divider bg={safeBg} vertical />
                             <button onClick={() => openLabelEdit(selShape)} style={{
@@ -1525,7 +1557,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                                 borderRadius: 6, opacity: 0.85, fontFamily: "inherit",
                             }}>{Ic.edit} {selShape.label ? "Edit label" : "Add label"}</button>
                         </>
-                    )}
+                    )} */}
 
                     {/* Opacity */}
                     <Divider bg={safeBg} vertical />
@@ -1538,31 +1570,40 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
             )}
 
             {/* standalone text input overlay */}
-            {textInput && (
-                <textarea
-                    ref={textareaRef}
-                    value={textVal}
-                    onChange={e => setTextVal(e.target.value)}
-                    onBlur={commitText}
-                    onKeyDown={e => {
-                        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); commitText(); }
-                        else if (e.key === "Escape") { e.preventDefault(); setTextInput(null); setTextVal(""); setEditingTextId(null); }
-                    }}
-                    onMouseDown={e => e.stopPropagation()}
-                    onClick={e => e.stopPropagation()}
-                    placeholder="Type…"
-                    style={{
-                        position: "absolute",
-                        left: textInput.x * zoom + pan.x,
-                        top: (textInput.y - (14 + strokeWidth * 2)) * zoom + pan.y,
-                        minWidth: 100, minHeight: (14 + strokeWidth * 2) * 1.4 * zoom,
-                        fontSize: (14 + strokeWidth * 2) * zoom,
-                        color: ink, background: "transparent",
-                        border: `1px dashed ${ink}`, padding: 2, zIndex: 50,
-                        fontFamily: "inherit",
-                    }}
-                />
-            )}
+            {textInput && (() => {
+                const fs = editingTextId ? (stateRef.current.shapes.find(s => s.id === editingTextId)?.fontSize ?? 18) : (fontSize === "custom" ? customFontSize : fontSize);
+                const lines = (textVal ?? "").split("\n");
+                const longest = Math.max(...lines.map(l => l.length), 4);
+                const textW = Math.max(longest * fs * 0.6 + 16, 50);
+                const textH = Math.max(lines.length, 1) * fs * 1.3 + 12;
+
+                return (
+                    <textarea
+                        ref={textareaRef}
+                        value={textVal}
+                        onChange={e => setTextVal(e.target.value)}
+                        onBlur={commitText}
+                        onKeyDown={e => {
+                            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); commitText(); }
+                            else if (e.key === "Escape") { e.preventDefault(); setTextInput(null); setTextVal(""); setEditingTextId(null); }
+                        }}
+                        onMouseDown={e => e.stopPropagation()}
+                        onClick={e => e.stopPropagation()}
+                        placeholder="Type…"
+                        style={{
+                            position: "absolute",
+                            left: textInput.x * zoom + pan.x,
+                            top: (textInput.y - fs) * zoom + pan.y,
+                            minWidth: 100, width: textW * zoom,
+                            minHeight: fs * 1.4 * zoom, height: textH * zoom,
+                            fontSize: fs * zoom,
+                            color: ink, background: "transparent",
+                            border: `1px dashed ${ink}`, padding: 2, zIndex: 50,
+                            fontFamily: "inherit",
+                        }}
+                    />
+                );
+            })()}
 
             {/* shape label edit overlay */}
             {labelOverlay && (
