@@ -3,7 +3,7 @@ import DrawingPadPage from "./pages/draw/Draw";
 import HomePage from "./pages/HomePage";
 import AuthForm from "./pages/user/Auth";
 import ProtectedRoute from "./components/Auth/ProtectedRoute";
-import Dashboard from "./pages/Dashboard";
+import Dashboard from "./pages/user/Dashboard";
 
 function App() {
   return (

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { http } from "../services/http";
-import { useAuth } from "../components/Auth/AuthContext";
+import { http } from "../../services/http";
+import { useAuth } from "../../components/Auth/AuthContext";
 
 type FileData = {
   id: string;
