@@ -51,7 +51,7 @@ const AuthForm: React.FC = () => {
         if (response.data.token) {
           localStorage.setItem("token", response.data.token);
           await refetchUser();
-          navigate("/draw");
+          navigate("/dashboard");
         }
       } else {
         response = await http.public.post<AuthResponse>("/user/sign-up", {
@@ -75,8 +75,8 @@ const AuthForm: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
-      <div className="w-full max-w-md bg-white shadow-lg rounded-2xl p-8">
+    <div className="min-h-screen flex items-center justify-center bg-black px-4 font-sans text-white">
+      <div className="w-full max-w-md bg-black border border-white p-8">
         <h2 className="text-2xl font-bold text-center mb-6">
           {mode === "login" ? "Login" : "Create Account"}
         </h2>
@@ -89,7 +89,7 @@ const AuthForm: React.FC = () => {
               placeholder="Full Name"
               value={form.name}
               onChange={handleChange}
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              className="w-full px-4 py-2 bg-black text-white border border-white focus:outline-none focus:ring-1 focus:ring-white"
             />
           )}
 
@@ -99,7 +99,7 @@ const AuthForm: React.FC = () => {
             placeholder="Email"
             value={form.email}
             onChange={handleChange}
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+            className="w-full px-4 py-2 bg-black text-white border border-white focus:outline-none focus:ring-1 focus:ring-white"
           />
 
           <input
@@ -108,13 +108,13 @@ const AuthForm: React.FC = () => {
             placeholder="Password"
             value={form.password}
             onChange={handleChange}
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+            className="w-full px-4 py-2 bg-black text-white border border-white focus:outline-none focus:ring-1 focus:ring-white"
           />
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+            className="w-full bg-white text-black font-bold py-2 hover:bg-gray-200 transition disabled:opacity-50"
           >
             {loading
               ? "Please wait..."
@@ -130,7 +130,7 @@ const AuthForm: React.FC = () => {
             : "Already have an account?"}
           <button
             onClick={toggleMode}
-            className="text-blue-600 ml-1 hover:underline"
+            className="text-gray-400 ml-1 hover:text-white hover:underline transition-colors"
           >
             {mode === "login" ? "Sign up" : "Login"}
           </button>

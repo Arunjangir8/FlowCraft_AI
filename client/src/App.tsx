@@ -3,12 +3,21 @@ import DrawingPadPage from "./pages/draw/Draw";
 import HomePage from "./pages/HomePage";
 import AuthForm from "./pages/user/Auth";
 import ProtectedRoute from "./components/Auth/ProtectedRoute";
+import Dashboard from "./pages/Dashboard";
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<HomePage />} />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/draw"
           element={

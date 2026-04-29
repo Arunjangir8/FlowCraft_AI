@@ -45,17 +45,17 @@ export default function HomePage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-slate-100 px-6 py-10 text-slate-900">
-      <div className="mx-auto w-full max-w-3xl space-y-6 rounded-2xl bg-white p-8 shadow-sm">
+    <main className="min-h-screen bg-black px-6 py-10 text-white">
+      <div className="mx-auto w-full max-w-3xl space-y-6 border border-white bg-black p-8 shadow-sm">
         <header>
-          <h1 className="text-3xl font-bold">Frontend Starter Ready</h1>
-          <p className="mt-2 text-slate-600">
+          <h1 className="text-3xl font-bold text-white">Frontend Starter Ready</h1>
+          <p className="mt-2 text-gray-400">
             Tailwind is configured and backend connection is set up.
           </p>
         </header>
 
         {state.kind === "loading" || state.kind === "idle" ? (
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+          <div className="border border-white bg-black p-4 text-sm text-gray-400">
             Checking backend health...
           </div>
         ) : null}
@@ -78,9 +78,9 @@ export default function HomePage() {
           />
         ) : null}
 
-        <section className="rounded-xl border border-slate-200 p-4">
-          <h2 className="text-lg font-semibold">Project structure</h2>
-          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">
+        <section className="border border-white p-4">
+          <h2 className="text-lg font-semibold text-white">Project structure</h2>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-400">
             <li>components: reusable UI blocks</li>
             <li>pages: page-level screens</li>
             <li>services: API calls and HTTP helpers</li>
