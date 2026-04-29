@@ -24,12 +24,13 @@ export const signupController = async (
         }
 
         const user = await authService.signup(email, password, name);
+        const { passwordHash, ...safeUser } = user as any;
 
         res.status(201).json({
             success: true,
             message: "Signup successful",
             data: {
-                user,
+                user: safeUser,
             },
         });
     } catch (err: any) {

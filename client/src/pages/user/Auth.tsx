@@ -1,8 +1,12 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { GoogleLogin } from "@react-oauth/google";
+import type { CredentialResponse } from "@react-oauth/google";
 import { http } from "../../services/http";
 import { useAuth } from "../../components/Auth/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { env } from "../../config/env";
+import type { User } from "../../types/api";
 
 type Mode = "login" | "signup";
 
@@ -10,7 +14,7 @@ type AuthResponse = {
   success: boolean;
   message: string;
   data: {
-    user: unknown;
+    user: User;
     token?: string;
   };
 };
@@ -35,6 +39,14 @@ const AuthForm = () => {
     setMode((prev) => (prev === "login" ? "signup" : "login"));
   };
 
+  const loginWithToken = async (token?: string) => {
+    if (!token) return;
+
+    localStorage.setItem("token", token);
+    await refetchUser();
+    navigate("/dashboard");
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -49,11 +61,7 @@ const AuthForm = () => {
           password: form.password,
         });
 
-        if (response.data.token) {
-          localStorage.setItem("token", response.data.token);
-          await refetchUser();
-          navigate("/dashboard");
-        }
+        await loginWithToken(response.data.token);
       } else {
         response = await http.public.post<AuthResponse>("/user/sign-up", {
           name: form.name,
@@ -67,6 +75,30 @@ const AuthForm = () => {
       }
     } catch (err) {
       alert("Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSuccess = async (credential?: string) => {
+    if (!credential) {
+      alert("Google login did not return a valid credential.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const response = await http.public.post<AuthResponse>(
+        "/user/google-sign-in",
+        {
+          idToken: credential,
+        }
+      );
+
+      await loginWithToken(response.data.token);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Google login failed");
     } finally {
       setLoading(false);
     }
@@ -104,7 +136,7 @@ const AuthForm = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="h-[52px] overflow-hidden">
+          <div className="h-13 overflow-hidden">
             <AnimatePresence mode="wait">
               {mode === "signup" ? (
                 <motion.input
@@ -162,23 +194,34 @@ const AuthForm = () => {
         </form>
 
         <div className="flex items-center my-6">
-          <div className="flex-1 h-[2px] bg-white" />
+          <div className="flex-1 h-0.5 bg-white" />
           <p className="mx-3 text-xs">OR</p>
-          <div className="flex-1 h-[2px] bg-white" />
+          <div className="flex-1 h-0.5 bg-white" />
         </div>
 
-        <motion.button
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.96 }}
-          className="w-full flex items-center justify-center gap-3 bg-white text-black py-2 font-bold border-2 border-white hover:bg-black hover:text-white transition"
-        >
-          <img
-            src="https://www.svgrepo.com/show/475656/google-color.svg"
-            alt="google"
-            className="w-5 h-5"
-          />
-          CONTINUE WITH GOOGLE
-        </motion.button>
+        {env.googleClientId ? (
+          <div className="w-full flex justify-center">
+            <GoogleLogin
+              onSuccess={(credentialResponse: CredentialResponse) =>
+                handleGoogleSuccess(credentialResponse.credential)
+              }
+              onError={() => alert("Google login failed")}
+              theme="filled_black"
+              shape="rectangular"
+              size="large"
+              text="continue_with"
+              width="380"
+            />
+          </div>
+        ) : (
+          <button
+            type="button"
+            disabled
+            className="w-full flex items-center justify-center gap-3 bg-gray-900 text-gray-400 py-2 font-bold border-2 border-gray-700 cursor-not-allowed"
+          >
+            SET VITE_GOOGLE_CLIENT_ID TO ENABLE GOOGLE LOGIN
+          </button>
+        )}
 
         <p className="text-center text-sm mt-6">
           {mode === "login"

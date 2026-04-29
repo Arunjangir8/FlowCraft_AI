@@ -1,5 +1,6 @@
 export const AppEnv = {
   NODE_ENV: process.env.NODE_ENV || 'development',
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
 
   LOKI: {
     ENABLED: process.env.LOKI_ENABLED === 'true',

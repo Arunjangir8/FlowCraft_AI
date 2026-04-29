@@ -25,9 +25,12 @@ Set the backend origin in your `.env` or `.env.local` file.
 
 ```env
 VITE_BACKEND_URL=https://your-backend-domain.com
+VITE_GOOGLE_CLIENT_ID=your-google-oauth-web-client-id.apps.googleusercontent.com
 ```
 
 The client will call `${VITE_BACKEND_URL}/api/v1` directly.
+
+If `VITE_GOOGLE_CLIENT_ID` is set, the login page enables Google sign-in.
 
 ## Run
 

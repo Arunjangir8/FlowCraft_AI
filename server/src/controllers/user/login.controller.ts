@@ -17,12 +17,13 @@ export const loginController = async (
         }
 
         const { user, token } = await authService.login(email, password);
+        const { passwordHash, ...safeUser } = user as any;
 
         res.status(200).json({
             success: true,
             message: "Login successful",
             data: {
-                user,
+                user: safeUser,
                 token,
             },
         });
