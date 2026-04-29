@@ -146,22 +146,23 @@ export default function LandingPage() {
 
   // Hero nodes/edges
   const heroNodes: Node[] = [
-    { x: 230, y: 36,  w: 100, h: 32, label: "User Request",    delay: 0 },
-    { x: 230, y: 104, w: 100, h: 32, label: "AI Processor",    delay: 300, accent: true },
-    { x: 90,  y: 172, w: 90,  h: 32, label: "Parse Intent",    delay: 600 },
-    { x: 230, y: 172, w: 90,  h: 32, label: "Generate",        delay: 700 },
-    { x: 370, y: 172, w: 90,  h: 32, label: "Validate",        delay: 800 },
-    { x: 230, y: 248, w: 100, h: 32, label: "Output Diagram",  delay: 1100 },
-  ];
+  { x: 230, y: 44,  w: 120, h: 32, label: "User Request",   delay: 0 },
+  { x: 230, y: 120, w: 120, h: 32, label: "AI Processor",   delay: 300, accent: true },
+  { x: 80,  y: 210, w: 100, h: 32, label: "Parse Intent",   delay: 600 },
+  { x: 230, y: 210, w: 100, h: 32, label: "Generate",       delay: 700 },
+  { x: 380, y: 210, w: 100, h: 32, label: "Validate",       delay: 800 },
+  { x: 230, y: 284, w: 120, h: 32, label: "Output Diagram", delay: 1100 },
+];
   const heroEdges: Edge[] = [
-    { x1: 280, y1: 68,  x2: 280, y2: 104, delay: 200 },
-    { x1: 280, y1: 136, x2: 135, y2: 172, delay: 500 },
-    { x1: 280, y1: 136, x2: 280, y2: 172, delay: 600 },
-    { x1: 280, y1: 136, x2: 415, y2: 172, delay: 700 },
-    { x1: 135, y1: 204, x2: 280, y2: 248, delay: 900 },
-    { x1: 280, y1: 204, x2: 280, y2: 248, delay: 1000 },
-    { x1: 415, y1: 204, x2: 280, y2: 248, delay: 1050 },
-  ];
+  { x1: 230, y1: 60,  x2: 230, y2: 104, delay: 150 },
+  { x1: 200, y1: 136, x2: 80,  y2: 194, delay: 450 },
+  { x1: 230, y1: 136, x2: 230, y2: 194, delay: 550 },
+  { x1: 260, y1: 136, x2: 380, y2: 194, delay: 650 },
+  { x1: 80,  y1: 226, x2: 195, y2: 268, delay: 900 },
+  { x1: 230, y1: 226, x2: 230, y2: 268, delay: 1000 },
+  { x1: 380, y1: 226, x2: 265, y2: 268, delay: 1050 },
+];
+
 
   // Demo nodes/edges
   const demoNodes: Node[] = [
@@ -295,7 +296,7 @@ export default function LandingPage() {
                 <div className="w-2 h-2 rounded-full bg-[#febc2e]" />
                 <div className="w-2 h-2 rounded-full bg-[#28c840]" />
               </div>
-              <div className="relative h-[300px]">
+              <div className="relative h-[350px]">
                 <FlowSVG id="hero-svg" nodes={heroNodes} edges={heroEdges} />
               </div>
             </div>
