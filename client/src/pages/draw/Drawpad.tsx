@@ -2,6 +2,7 @@ import {
     useState, useRef, useEffect, useCallback,
     type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode
 } from "react";
+import { useNavigate } from "react-router-dom";
 
 
 export const TOOLS = {
@@ -644,6 +645,7 @@ const Ic: Record<string, ReactNode> = {
     edit: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z" /></svg>,
     sun: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" /></svg>,
     moon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>,
+    back: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>,
 };
 
 
@@ -743,6 +745,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
     const [justDrawnId, setJustDrawnId] = useState<number | string | null>(null);
     const [showDlMenu, setShowDlMenu] = useState(false);
     const [canvasCursor, setCanvasCursor] = useState("crosshair");
+    const navigate = useNavigate();
 
     useEffect(() => { stateRef.current = { shapes, zoom, pan, selectedId, selectedIds, editingTextId, editingLabelId }; }, [shapes, zoom, pan, selectedId, selectedIds, editingTextId, editingLabelId]);
     useEffect(() => { bgColorRef.current = safeBg; }, [safeBg]);
@@ -1417,6 +1420,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                 position: "absolute", top: 16, left: 16,
                 ...panelStyle, padding: 5, display: "flex", alignItems: "center", gap: 2, zIndex: 30,
             }}>
+                <FloatingBtn label="Back  ⌘W" bg={safeBg} onClick={() => navigate(`/dashboard`)}>{Ic.back}</FloatingBtn>
                 <FloatingBtn label="Undo  ⌘Z" bg={safeBg} onClick={undo}>{Ic.undo}</FloatingBtn>
                 <FloatingBtn label="Redo  ⌘⇧Z" bg={safeBg} onClick={redo}>{Ic.redo}</FloatingBtn>
                 <Divider bg={safeBg} vertical />

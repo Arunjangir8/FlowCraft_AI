@@ -24,6 +24,10 @@ export default function Dashboard() {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState("");
 
+  // ✅ DELETE MODAL STATE (added)
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -101,6 +105,25 @@ export default function Dashboard() {
     }
   };
 
+  // ✅ CONFIRM DELETE ACTION (updated)
+  const confirmDelete = async () => {
+    if (!deleteId) return;
+
+    try {
+      setDeleting(true);
+
+      await http.private.delete(`/drawing/file/${deleteId}`);
+
+      setFiles((prev) => prev.filter((f) => f.id !== deleteId));
+      setDeleteId(null);
+    } catch (err) {
+      console.error("Delete failed", err);
+      alert("Failed to delete file");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-black text-white px-6 py-10 font-sans">
       <div className="mx-auto w-full max-w-5xl">
@@ -134,19 +157,30 @@ export default function Dashboard() {
             {files.map((file) => (
               <div
                 key={file.id}
-                className="group border border-gray-800 hover:border-white p-5 cursor-pointer transition-colors bg-black flex flex-col"
+                className="group border border-gray-800 hover:border-white p-5 pt-8 transition-colors bg-black flex flex-col relative"
               >
+                {/* ✅ DELETE BUTTON */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeleteId(file.id);
+                  }}
+                  className="absolute top-2 right-2 text-xs text-red-400 hover:text-red-600"
+                >
+                  ✕
+                </button>
+
                 {/* Canvas preview */}
                 <div
                   onClick={() => navigate(`/draw/${file.id}`)}
-                  className="flex-1 flex items-center justify-center min-h-[120px] mb-4 bg-gray-900 border border-gray-800 group-hover:border-white transition-colors"
+                  className="flex-1 flex items-center justify-center min-h-[120px] mb-4 bg-gray-900 border border-gray-800 group-hover:border-white transition-colors cursor-pointer"
                 >
                   <span className="text-gray-500 text-xs uppercase tracking-widest">
                     Canvas
                   </span>
                 </div>
 
-                {/* Title (rename UI) */}
+                {/* Title */}
                 {renamingId === file.id ? (
                   <input
                     value={newTitle}
@@ -180,7 +214,36 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Modal */}
+      {/* ✅ DELETE CONFIRM MODAL */}
+      {deleteId && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-black border border-white p-6 max-w-sm w-full">
+            <h2 className="text-lg font-semibold mb-2">Delete File</h2>
+            <p className="text-gray-400 text-sm mb-6">
+              Are you sure you want to delete this file? This action cannot be undone.
+            </p>
+
+            <div className="flex justify-end gap-4">
+              <button
+                onClick={() => setDeleteId(null)}
+                className="text-gray-400 hover:text-white text-sm"
+                disabled={deleting}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={deleting}
+                className="bg-red-500 text-white px-4 py-2 text-sm font-semibold hover:bg-red-600 disabled:opacity-50"
+              >
+                {deleting ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Existing Create Modal (unchanged) */}
       {showModal && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
           <div className="bg-black border border-white p-8 max-w-lg w-full">
