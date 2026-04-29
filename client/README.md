@@ -15,19 +15,19 @@ src/
 ## What is already set up
 
 - Tailwind CSS via `@tailwindcss/vite`
-- Vite proxy to backend (`/api` → `http://localhost:5000`)
+- Direct API base URL configuration for the backend
 - Starter API service and typed health check
 - Starter home page showing backend connection status
 
 ## Environment
 
-Copy `.env.example` to `.env` if needed.
+Set the backend origin in your `.env` or `.env.local` file.
 
 ```env
-VITE_API_BASE_URL=/api/v1
+VITE_BACKEND_URL=https://your-backend-domain.com
 ```
 
-Use `/api/v1` in development so requests go through the Vite proxy.
+The client will call `${VITE_BACKEND_URL}/api/v1` directly.
 
 ## Run
 
