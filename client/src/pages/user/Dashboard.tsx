@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { http } from "../../services/http";
 import { useAuth } from "../../components/Auth/AuthContext";
+import { DrawingLoader } from "../../components/common/Loader";
 
 type FileData = {
   id: string;
@@ -20,16 +21,19 @@ export default function Dashboard() {
   const [aiPrompt, setAiPrompt] = useState("");
   const [creating, setCreating] = useState(false);
 
-  // ✅ rename state
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState("");
 
-  // ✅ DELETE MODAL STATE (added)
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
 
   useEffect(() => {
     loadFiles();
@@ -59,7 +63,6 @@ export default function Dashboard() {
       );
 
       const newFileId = res.data?.id;
-
       if (!newFileId) throw new Error("Failed to create file");
 
       if (aiPrompt.trim()) {
@@ -79,7 +82,6 @@ export default function Dashboard() {
     }
   };
 
-  // ✅ rename handler
   const handleRename = async (fileId: string) => {
     if (!newTitle.trim()) {
       setRenamingId(null);
@@ -87,16 +89,10 @@ export default function Dashboard() {
     }
 
     try {
-      await http.private.patch(`/drawing/file/${fileId}`, {
-        title: newTitle,
-      });
-
+      await http.private.patch(`/drawing/file/${fileId}`, { title: newTitle });
       setFiles((prev) =>
-        prev.map((f) =>
-          f.id === fileId ? { ...f, title: newTitle } : f
-        )
+        prev.map((f) => (f.id === fileId ? { ...f, title: newTitle } : f))
       );
-
       setRenamingId(null);
       setNewTitle("");
     } catch (err) {
@@ -105,15 +101,11 @@ export default function Dashboard() {
     }
   };
 
-  // ✅ CONFIRM DELETE ACTION (updated)
   const confirmDelete = async () => {
     if (!deleteId) return;
-
     try {
       setDeleting(true);
-
       await http.private.delete(`/drawing/file/${deleteId}`);
-
       setFiles((prev) => prev.filter((f) => f.id !== deleteId));
       setDeleteId(null);
     } catch (err) {
@@ -125,47 +117,62 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white px-6 py-10 font-sans">
+    <div className="min-h-screen bg-black text-white px-4 sm:px-6 py-6 sm:py-10 font-sans">
       <div className="mx-auto w-full max-w-5xl">
-        <header className="flex justify-between items-center mb-10 border-b border-white pb-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Your Drawings</h1>
-            <p className="mt-2 text-gray-400">Welcome back, {user?.name || "User"}</p>
-          </div>
-          <button
-            onClick={() => setShowModal(true)}
-            className="bg-white text-black px-5 py-2 font-semibold text-sm hover:bg-gray-200 transition-colors"
-          >
-            + Create New
-          </button>
-        </header>
 
-        {loading ? (
-          <div className="text-gray-400 text-center py-10">Loading files...</div>
-        ) : files.length === 0 ? (
-          <div className="text-center py-20 border border-white p-10 bg-black">
-            <p className="text-gray-400 mb-4">No drawings found.</p>
+        {/* ── Header ── */}
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8 sm:mb-10 border-b border-white pb-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Your Drawings</h1>
+            <p className="mt-1 text-sm sm:text-base text-gray-400">
+              Welcome back, {user?.name || "User"}
+            </p>
+          </div>
+          <div className="flex gap-3 w-full sm:w-auto">
             <button
               onClick={() => setShowModal(true)}
-              className="border border-white text-white px-5 py-2 hover:bg-white hover:text-black transition-colors"
+              className="flex-1 sm:flex-none bg-white text-black px-4 sm:px-5 py-2.5 font-semibold text-sm hover:bg-gray-200 transition-colors"
+            >
+              + Create New
+            </button>
+            <button
+              onClick={handleLogout}
+              className="flex-1 sm:flex-none bg-red-600 text-white px-4 sm:px-5 py-2.5 font-semibold text-sm hover:bg-red-700 transition-colors"
+            >
+              Logout
+            </button>
+          </div>
+        </header>
+
+        {/* ── Body ── */}
+        {loading ? (
+          <DrawingLoader />
+        ) : files.length === 0 ? (
+          <div className="text-center py-16 sm:py-20 border border-white p-6 sm:p-10 bg-black">
+            <p className="text-gray-400 mb-4 text-sm sm:text-base">No drawings found.</p>
+            <button
+              onClick={() => setShowModal(true)}
+              className="border border-white text-white px-5 py-2.5 text-sm hover:bg-white hover:text-black transition-colors"
             >
               Create your first drawing
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          /* ── Grid: 2 cols on mobile, 3 on tablet, 4 on desktop ── */
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
             {files.map((file) => (
               <div
                 key={file.id}
-                className="group border border-gray-800 hover:border-white p-5 pt-8 transition-colors bg-black flex flex-col relative"
+                className="group border border-gray-800 hover:border-white p-3 sm:p-4 md:p-5 pt-7 sm:pt-8 transition-colors bg-black flex flex-col relative"
               >
-                {/* ✅ DELETE BUTTON */}
+                {/* Delete button — larger tap target on mobile */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setDeleteId(file.id);
                   }}
-                  className="absolute top-2 right-2 text-xs text-red-400 hover:text-red-600"
+                  className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2 w-7 h-7 flex items-center justify-center text-xs text-red-400 hover:text-red-500 active:text-red-600 transition-colors"
+                  aria-label="Delete file"
                 >
                   ✕
                 </button>
@@ -173,9 +180,9 @@ export default function Dashboard() {
                 {/* Canvas preview */}
                 <div
                   onClick={() => navigate(`/draw/${file.id}`)}
-                  className="flex-1 flex items-center justify-center min-h-[120px] mb-4 bg-gray-900 border border-gray-800 group-hover:border-white transition-colors cursor-pointer"
+                  className="flex-1 flex items-center justify-center min-h-[90px] sm:min-h-[110px] md:min-h-[120px] mb-3 sm:mb-4 bg-gray-900 border border-gray-800 group-hover:border-white transition-colors cursor-pointer active:opacity-80"
                 >
-                  <span className="text-gray-500 text-xs uppercase tracking-widest">
+                  <span className="text-gray-500 text-[10px] sm:text-xs uppercase tracking-widest">
                     Canvas
                   </span>
                 </div>
@@ -191,7 +198,7 @@ export default function Dashboard() {
                       if (e.key === "Escape") setRenamingId(null);
                     }}
                     autoFocus
-                    className="bg-black border border-white px-2 py-1 text-white text-sm outline-none"
+                    className="bg-black border border-white px-2 py-1 text-white text-sm outline-none w-full"
                   />
                 ) : (
                   <h3
@@ -199,14 +206,14 @@ export default function Dashboard() {
                       setRenamingId(file.id);
                       setNewTitle(file.title);
                     }}
-                    className="text-lg font-semibold truncate text-white"
+                    className="text-sm sm:text-base md:text-lg font-semibold truncate text-white leading-tight"
                   >
                     {file.title}
                   </h3>
                 )}
 
-                <p className="text-xs text-gray-500 mt-1">
-                  Updated: {new Date(file.updatedAt).toLocaleDateString()}
+                <p className="text-[10px] sm:text-xs text-gray-500 mt-1">
+                  {new Date(file.updatedAt).toLocaleDateString()}
                 </p>
               </div>
             ))}
@@ -214,27 +221,26 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* ✅ DELETE CONFIRM MODAL */}
+      {/* ── Delete Confirm Modal ── */}
       {deleteId && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-black border border-white p-6 max-w-sm w-full">
+        <div className="fixed inset-0 bg-black/80 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-black border border-white p-6 w-full sm:max-w-sm sm:w-full rounded-t-2xl sm:rounded-none">
             <h2 className="text-lg font-semibold mb-2">Delete File</h2>
             <p className="text-gray-400 text-sm mb-6">
               Are you sure you want to delete this file? This action cannot be undone.
             </p>
-
-            <div className="flex justify-end gap-4">
+            <div className="flex gap-3">
               <button
                 onClick={() => setDeleteId(null)}
-                className="text-gray-400 hover:text-white text-sm"
                 disabled={deleting}
+                className="flex-1 border border-gray-700 text-gray-300 hover:text-white hover:border-white py-2.5 text-sm transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmDelete}
                 disabled={deleting}
-                className="bg-red-500 text-white px-4 py-2 text-sm font-semibold hover:bg-red-600 disabled:opacity-50"
+                className="flex-1 bg-red-500 text-white py-2.5 text-sm font-semibold hover:bg-red-600 disabled:opacity-50 transition-colors"
               >
                 {deleting ? "Deleting..." : "Delete"}
               </button>
@@ -243,35 +249,34 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Existing Create Modal (unchanged) */}
+      {/* ── Create Modal ── */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-black border border-white p-8 max-w-lg w-full">
-            <h2 className="text-2xl font-bold mb-2">Create New File</h2>
-            <p className="text-gray-400 text-sm mb-6">
-              Would you like to use AI to generate the starting face of the drawing? 
-              Describe what you want, or leave it blank for an empty canvas.
+        <div className="fixed inset-0 bg-black/80 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-black border border-white p-6 sm:p-8 w-full sm:max-w-lg sm:w-full rounded-t-2xl sm:rounded-none">
+            <h2 className="text-xl sm:text-2xl font-bold mb-2">Create New File</h2>
+            <p className="text-gray-400 text-sm mb-5">
+              Describe what you want AI to generate, or leave blank for an empty canvas.
             </p>
 
             <textarea
               value={aiPrompt}
               onChange={(e) => setAiPrompt(e.target.value)}
               placeholder="E.g., A flowchart for a user login process..."
-              className="w-full bg-black border border-gray-700 p-3 text-white focus:border-white focus:outline-none min-h-[100px] mb-6 resize-y"
+              className="w-full bg-black border border-gray-700 p-3 text-white text-sm focus:border-white focus:outline-none min-h-[90px] sm:min-h-[100px] mb-5 resize-y"
             />
 
-            <div className="flex justify-end gap-4">
+            <div className="flex gap-3">
               <button
                 onClick={() => setShowModal(false)}
-                className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
                 disabled={creating}
+                className="flex-1 border border-gray-700 text-gray-300 hover:text-white hover:border-white py-2.5 text-sm transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreateFile}
                 disabled={creating}
-                className="bg-white text-black px-6 py-2 text-sm font-bold hover:bg-gray-200 transition-colors disabled:opacity-50"
+                className="flex-1 bg-white text-black py-2.5 text-sm font-bold hover:bg-gray-200 disabled:opacity-50 transition-colors"
               >
                 {creating
                   ? "Creating..."

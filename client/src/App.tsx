@@ -3,6 +3,7 @@ import DrawingPadPage from "./pages/draw/Draw";
 import HomePage from "./pages/HomePage";
 import AuthForm from "./pages/user/Auth";
 import ProtectedRoute from "./components/Auth/ProtectedRoute";
+import PublicRoute from "./components/Auth/PublicRoute";
 import Dashboard from "./pages/user/Dashboard";
 
 function App() {
@@ -35,7 +36,7 @@ function App() {
           }
         />
 
-        <Route path="/login" element={<AuthForm />} />
+        <Route path="/login" element={<PublicRoute><AuthForm /></PublicRoute>} />
       </Routes>
     </BrowserRouter>
   );
