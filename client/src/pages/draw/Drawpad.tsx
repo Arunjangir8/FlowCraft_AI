@@ -64,6 +64,7 @@ type Bounds = { x: number; y: number; w: number; h: number };
 type DrawStateRef = {
     shapes: DrawShape[]; zoom: number; pan: Point;
     selectedId: number | string | null; selectedIds: Set<number | string>;
+    editingTextId: number | string | null; editingLabelId: number | string | null;
 };
 
 export interface DrawingPadProps {
@@ -474,7 +475,7 @@ function hitTest(shape: DrawShape, px: number, py: number, all?: DrawShape[]): b
 // DRAWING
 // ============================================================================
 
-function drawShape(ctx: CanvasRenderingContext2D, shape: DrawShape, ink: string): void {
+function drawShape(ctx: CanvasRenderingContext2D, shape: DrawShape, ink: string, skipLabel?: boolean): void {
     ctx.save();
     applyShapeRotation(ctx, shape);
     ctx.globalAlpha = shape.opacity ?? 1;
@@ -565,7 +566,7 @@ function drawShape(ctx: CanvasRenderingContext2D, shape: DrawShape, ink: string)
             break;
         }
     }
-    if (shape.label && (shape.type === "rect" || shape.type === "ellipse" || shape.type === "diamond")) {
+    if (!skipLabel && shape.label && (shape.type === "rect" || shape.type === "ellipse" || shape.type === "diamond")) {
         drawShapeLabelInner(ctx, shape, ink);
     }
     ctx.restore();
@@ -711,7 +712,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
     const containerRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const labelTextareaRef = useRef<HTMLTextAreaElement>(null);
-    const stateRef = useRef<DrawStateRef>({ shapes: [], zoom: 1, pan: { x: 0, y: 0 }, selectedId: null, selectedIds: new Set() });
+    const stateRef = useRef<DrawStateRef>({ shapes: [], zoom: 1, pan: { x: 0, y: 0 }, selectedId: null, selectedIds: new Set(), editingTextId: null, editingLabelId: null });
     const textActiveRef = useRef(false);
     const preDragRef = useRef<DrawShape[] | null>(null);
     const origShapesRef = useRef<Map<number | string, DrawShape>>(new Map());
@@ -752,7 +753,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
     const [showDlMenu, setShowDlMenu] = useState(false);
     const [canvasCursor, setCanvasCursor] = useState("crosshair");
 
-    useEffect(() => { stateRef.current = { shapes, zoom, pan, selectedId, selectedIds }; }, [shapes, zoom, pan, selectedId, selectedIds]);
+    useEffect(() => { stateRef.current = { shapes, zoom, pan, selectedId, selectedIds, editingTextId, editingLabelId }; }, [shapes, zoom, pan, selectedId, selectedIds, editingTextId, editingLabelId]);
     useEffect(() => { bgColorRef.current = safeBg; }, [safeBg]);
     useEffect(() => { textActiveRef.current = textInput !== null || editingLabelId !== null; }, [textInput, editingLabelId]);
     useEffect(() => { if (!textInput || !textareaRef.current) return; requestAnimationFrame(() => { textareaRef.current?.focus(); textareaRef.current?.select(); }); }, [textInput]);
@@ -764,7 +765,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
     const redraw = useCallback((previewShape: DrawShape | null) => {
         const canvas = canvasRef.current; if (!canvas) return;
         const ctx = canvas.getContext("2d"); if (!ctx) return;
-        const { shapes, zoom, pan, selectedId, selectedIds } = stateRef.current;
+        const { shapes, zoom, pan, selectedId, selectedIds, editingTextId, editingLabelId } = stateRef.current;
         const bg = bgColorRef.current;
         const inkNow = getInkColor(bg);
 
@@ -781,11 +782,14 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
             return { ...s, x1: start.x, y1: start.y, x2: end.x, y2: end.y };
         });
         // Force monochrome ink — ignore stored s.color (legacy data) and force current ink.
-        resolved.forEach(s => drawShape(octx, { ...s, color: inkNow }, inkNow));
+        resolved.forEach(s => {
+            if (s.type === "text" && s.id === editingTextId) return;
+            drawShape(octx, { ...s, color: inkNow }, inkNow, s.id === editingLabelId);
+        });
 
         // arrow labels
         resolved.forEach(s => {
-            if (s.type === "arrow" && s.label) {
+            if (s.type === "arrow" && s.label && s.id !== editingLabelId) {
                 const seg = getArrowMidSegmentResolved(s);
                 const mx = (seg.a.x + seg.b.x) / 2, my = (seg.a.y + seg.b.y) / 2;
                 const fs = s.labelFontSize ?? 14;
@@ -832,7 +836,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
         ctx.restore(); canvas.style.background = bg;
     }, []);
 
-    useEffect(() => { redraw(preview); }, [shapes, pan, zoom, selectedId, selectedIds, preview, safeBg, redraw]);
+    useEffect(() => { redraw(preview); }, [shapes, pan, zoom, selectedId, selectedIds, preview, safeBg, editingTextId, editingLabelId, redraw]);
 
     useEffect(() => {
         const resize = () => {
