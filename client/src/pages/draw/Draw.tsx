@@ -26,7 +26,7 @@ export default function DrawingPadPage() {
     const bgColorRef = useRef(bgColor);
     const zoomRef    = useRef(zoom);
     const panRef     = useRef(pan);
-    const esRef      = useRef<EventSource | null>(null); // SSE connection
+    const esRef      = useRef<EventSource | null>(null); 
 
     useEffect(() => { shapesRef.current  = shapes;  }, [shapes]);
     useEffect(() => { bgColorRef.current = bgColor; }, [bgColor]);
@@ -60,7 +60,7 @@ export default function DrawingPadPage() {
             console.log("[SSE] Connected", JSON.parse(e.data));
         });
 
-        // AI agent finished — update canvas with generated shapes
+        
         es.addEventListener("ai:shapes_ready", (e) => {
             const data = JSON.parse(e.data);
             if (data.shapes?.length) {
@@ -69,7 +69,7 @@ export default function DrawingPadPage() {
             }
         });
 
-        // Another user in the same file updated the canvas
+        
         es.addEventListener("canvas:updated", (e) => {
             const data = JSON.parse(e.data);
             if (data.shapes?.length) {

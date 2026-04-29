@@ -3,9 +3,6 @@ import {
     type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode
 } from "react";
 
-// ============================================================================
-// CONSTANTS
-// ============================================================================
 
 export const TOOLS = {
     SELECT: "select", PAN: "pan", PEN: "pen", ERASER: "eraser",
@@ -13,12 +10,10 @@ export const TOOLS = {
     DIAMOND: "diamond", TEXT: "text",
 } as const;
 
-// Strict monochrome: only two backgrounds.
 export const BG_BLACK = "#0b0b0d";
 export const BG_WHITE = "#ffffff";
 export type BgMode = typeof BG_BLACK | typeof BG_WHITE;
 
-// Ink color is automatically derived from background — never user-pickable.
 export const getInkColor = (bg: string) => (bg === BG_WHITE ? "#0b0b0d" : "#f5f5f7");
 export const getMutedInk = (bg: string) => (bg === BG_WHITE ? "rgba(0,0,0,0.55)" : "rgba(255,255,255,0.6)");
 
@@ -26,9 +21,9 @@ const STROKE_WIDTHS = [1, 2, 4, 8];
 let _uid = 0;
 export const uid = () => ++_uid;
 
-// ============================================================================
-// TYPES
-// ============================================================================
+
+
+
 
 export type Point = { x: number; y: number };
 export type Tool = typeof TOOLS[keyof typeof TOOLS];
@@ -50,12 +45,12 @@ export type DrawShape = {
     color?: string; strokeWidth?: number; fill?: string;
     opacity?: number; rounded?: boolean; roundedRadius?: number; rotation?: number;
 
-    // embedded label
+    
     label?: string;
     labelFontSize?: number;
     labelColor?: string;
 
-    // arrow connector fields (orthogonal-only routing)
+    
     startBinding?: ArrowBinding;
     endBinding?: ArrowBinding;
 };
@@ -82,9 +77,9 @@ export interface DrawingPadProps {
     hasLocalCache: boolean;
 }
 
-// ============================================================================
-// GEOMETRY HELPERS
-// ============================================================================
+
+
+
 
 export function getBounds(shape: DrawShape): Bounds {
     if (shape.type === "pen" || shape.type === "eraser") {
@@ -173,9 +168,9 @@ function distToSegment(p: Point, a: Point, b: Point): number {
     return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
 }
 
-// ============================================================================
-// LABEL HELPERS
-// ============================================================================
+
+
+
 
 export function isLabelEditableShape(s: DrawShape): boolean {
     return s.type === "rect" || s.type === "ellipse" || s.type === "diamond" || s.type === "arrow";
@@ -219,9 +214,9 @@ function drawShapeLabelInner(ctx: CanvasRenderingContext2D, shape: DrawShape, in
     ctx.restore();
 }
 
-// ============================================================================
-// ARROW / CONNECTOR HELPERS  (orthogonal-only)
-// ============================================================================
+
+
+
 
 export function getShapeAnchorPoints(shape: DrawShape): Record<AnchorSide, Point> {
     const b = getBounds(shape);
@@ -276,7 +271,7 @@ export function resolveArrowEndpoints(arrow: DrawShape, all: DrawShape[]): { sta
     return { start, end };
 }
 
-/** Direction unit vector for an anchor side ("left" exits the shape pointing left, etc.). */
+
 function anchorDirection(side?: AnchorSide): Point | null {
     switch (side) {
         case "left": return { x: -1, y: 0 };
@@ -287,7 +282,7 @@ function anchorDirection(side?: AnchorSide): Point | null {
     }
 }
 
-/** Collapse collinear consecutive points (removes redundant turns). */
+
 function simplifyOrthogonal(pts: Point[]): Point[] {
     if (pts.length < 3) return pts;
     const out: Point[] = [pts[0]];
@@ -297,22 +292,11 @@ function simplifyOrthogonal(pts: Point[]): Point[] {
         if (!collinear) out.push(b);
     }
     out.push(pts[pts.length - 1]);
-    // also drop zero-length steps
+    
     return out.filter((p, i) => i === 0 || p.x !== out[i - 1].x || p.y !== out[i - 1].y);
 }
 
-/**
- * Orthogonal connector path. Uses only horizontal & vertical segments.
- * Supports multiple turns when needed (straight, L, Z / U shapes — up to 5 points).
- *
- * When endpoints are bound to shape anchors, the path is forced to leave the
- * start anchor and enter the end anchor along the anchor's outward direction
- * (with a small "stub" length), then routed through one or two intermediate
- * bends so that all segments remain orthogonal.
- *
- * When endpoints are unbound, falls back to a single-bend L-shape using the
- * dominant axis to choose bend direction.
- */
+
 export function buildOrthogonalPath(start: Point, end: Point, opts?: {
     startSide?: AnchorSide; endSide?: AnchorSide;
 }): Point[] {
@@ -322,7 +306,7 @@ export function buildOrthogonalPath(start: Point, end: Point, opts?: {
     const sDir = anchorDirection(opts?.startSide);
     const eDir = anchorDirection(opts?.endSide);
 
-    // ----- Unbound on both sides: simple straight or single L -----
+    
     if (!sDir && !eDir) {
         if (Math.abs(dx) < NEAR) return [start, { x: start.x, y: end.y }];
         if (Math.abs(dy) < NEAR) return [start, { x: end.x, y: start.y }];
@@ -331,32 +315,32 @@ export function buildOrthogonalPath(start: Point, end: Point, opts?: {
         return simplifyOrthogonal([start, bend, end]);
     }
 
-    // ----- Bound side(s): use anchor directions with stubs to force clean turns -----
-    const STUB = 24; // minimum distance the path travels along the anchor's outward direction
-    const CLEAR = 60; // clearance distance to route around shapes
+    
+    const STUB = 24; 
+    const CLEAR = 60; 
 
-    // Effective directions (fallbacks if a side is unbound)
+    
     const sd: Point = sDir ?? { x: Math.sign(dx) || 1, y: 0 };
     const ed: Point = eDir ?? { x: -(Math.sign(dx) || 1), y: 0 };
 
-    // Stub points just outside each anchor.
+    
     const sStub: Point = { x: start.x + sd.x * STUB, y: start.y + sd.y * STUB };
     const eStub: Point = { x: end.x + ed.x * STUB, y: end.y + ed.y * STUB };
 
-    const sHorizontal = sd.y === 0;       // start exits horizontally
-    const eHorizontal = ed.y === 0;       // end enters horizontally (from outside)
+    const sHorizontal = sd.y === 0;       
+    const eHorizontal = ed.y === 0;       
 
     let mid: Point[] = [];
 
     if (sHorizontal && eHorizontal) {
-        if (sd.x !== ed.x) { // Both face opposite
-            if ((eStub.x - sStub.x) * sd.x > 0) { // Good case, facing each other
+        if (sd.x !== ed.x) { 
+            if ((eStub.x - sStub.x) * sd.x > 0) { 
                 mid = [sStub, { x: (sStub.x + eStub.x) / 2, y: sStub.y }, { x: (sStub.x + eStub.x) / 2, y: eStub.y }, eStub];
-            } else { // Bad case, overlapping or inverted
+            } else { 
                 const safeY = Math.min(sStub.y, eStub.y) - CLEAR;
                 mid = [sStub, { x: sStub.x, y: safeY }, { x: eStub.x, y: safeY }, eStub];
             }
-        } else { // Face same direction
+        } else { 
             const safeX = sd.x > 0 ? Math.max(sStub.x, eStub.x) + STUB : Math.min(sStub.x, eStub.x) - STUB;
             mid = [sStub, { x: safeX, y: sStub.y }, { x: safeX, y: eStub.y }, eStub];
         }
@@ -373,8 +357,8 @@ export function buildOrthogonalPath(start: Point, end: Point, opts?: {
             mid = [sStub, { x: sStub.x, y: safeY }, { x: eStub.x, y: safeY }, eStub];
         }
     } else {
-        // Mixed: one horizontal, one vertical
-        if (sHorizontal) { // start H, end V
+        
+        if (sHorizontal) { 
             const hGood = (eStub.x - sStub.x) * sd.x >= 0;
             const vGood = (sStub.y - eStub.y) * ed.y >= 0;
             if (hGood && vGood) {
@@ -389,7 +373,7 @@ export function buildOrthogonalPath(start: Point, end: Point, opts?: {
                 const safeY = ed.y > 0 ? eStub.y + CLEAR : eStub.y - CLEAR;
                 mid = [sStub, { x: sStub.x, y: safeY }, { x: eStub.x, y: safeY }, eStub];
             }
-        } else { // start V, end H
+        } else { 
             const vGood = (eStub.y - sStub.y) * sd.y >= 0;
             const hGood = (sStub.x - eStub.x) * ed.x >= 0;
             if (vGood && hGood) {
@@ -418,10 +402,10 @@ export function getArrowPath(arrow: DrawShape, all: DrawShape[]): Point[] {
     });
 }
 
-/** Mid segment of the orthogonal path — used for label placement. */
+
 function getArrowMidSegmentFromPath(path: Point[]): { a: Point; b: Point } {
     if (path.length < 2) return { a: { x: 0, y: 0 }, b: { x: 0, y: 0 } };
-    // pick the longest segment for label placement
+    
     let best = { a: path[0], b: path[1], len: Math.hypot(path[1].x - path[0].x, path[1].y - path[0].y) };
     for (let i = 1; i < path.length - 1; i++) {
         const l = Math.hypot(path[i + 1].x - path[i].x, path[i + 1].y - path[i].y);
@@ -430,7 +414,7 @@ function getArrowMidSegmentFromPath(path: Point[]): { a: Point; b: Point } {
     return { a: best.a, b: best.b };
 }
 
-/** Label placement using already-resolved x1/y1/x2/y2 on the shape (caller pre-resolves bindings). */
+
 export function getArrowMidSegmentResolved(arrow: DrawShape): { a: Point; b: Point } {
     const start = { x: arrow.x1 ?? 0, y: arrow.y1 ?? 0 };
     const end = { x: arrow.x2 ?? 0, y: arrow.y2 ?? 0 };
@@ -457,9 +441,9 @@ export function getArrowEndpointHandleHit(arrow: DrawShape, all: DrawShape[], p:
     return null;
 }
 
-// ============================================================================
-// HIT TESTING
-// ============================================================================
+
+
+
 
 function hitTest(shape: DrawShape, px: number, py: number, all?: DrawShape[]): boolean {
     if (shape.type === "arrow") {
@@ -471,9 +455,9 @@ function hitTest(shape: DrawShape, px: number, py: number, all?: DrawShape[]): b
     return lp.x >= b.x - pad && lp.x <= b.x + b.w + pad && lp.y >= b.y - pad && lp.y <= b.y + b.h + pad;
 }
 
-// ============================================================================
-// DRAWING
-// ============================================================================
+
+
+
 
 function drawShape(ctx: CanvasRenderingContext2D, shape: DrawShape, ink: string, skipLabel?: boolean): void {
     ctx.save();
@@ -503,7 +487,7 @@ function drawShape(ctx: CanvasRenderingContext2D, shape: DrawShape, ink: string,
         }
         case "line": ctx.beginPath(); ctx.moveTo(shape.x1 ?? 0, shape.y1 ?? 0); ctx.lineTo(shape.x2 ?? 0, shape.y2 ?? 0); ctx.stroke(); break;
         case "arrow": {
-            // Orthogonal path (caller pre-resolves bindings into x1/y1/x2/y2).
+            
             const start = { x: shape.x1 ?? 0, y: shape.y1 ?? 0 };
             const end = { x: shape.x2 ?? 0, y: shape.y2 ?? 0 };
             const path = buildOrthogonalPath(start, end, {
@@ -520,7 +504,7 @@ function drawShape(ctx: CanvasRenderingContext2D, shape: DrawShape, ink: string,
 
             if (path.length < 2) break;
 
-            // arrowhead aligned with the FINAL segment (always horizontal or vertical)
+            
             const p1 = path[path.length - 2], p2 = path[path.length - 1];
             const dx = p2.x - p1.x, dy = p2.y - p1.y;
             const angle = Math.atan2(dy, dx);
@@ -584,7 +568,7 @@ function drawSelectionOverlay(ctx: CanvasRenderingContext2D, shape: DrawShape, z
     const sel = ink === "#0b0b0d" ? "rgba(0,0,0,0.85)" : "rgba(255,255,255,0.85)";
     const dot = ink;
 
-    // Arrow → just endpoint dots (orthogonal arrows have no manual bend handle)
+    
     if (shape.type === "arrow") {
         const all = allShapes ?? [shape];
         const { start, end } = resolveArrowEndpoints(shape, all);
@@ -630,9 +614,9 @@ function drawDotGrid(ctx: CanvasRenderingContext2D, w: number, h: number, pan: P
     for (let x = ox; x < w; x += spacing) for (let y = oy; y < h; y += spacing) { ctx.beginPath(); ctx.arc(x, y, 1, 0, Math.PI * 2); ctx.fill(); }
 }
 
-// ============================================================================
-// ICONS
-// ============================================================================
+
+
+
 
 const Ic: Record<string, ReactNode> = {
     select: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51z" /></svg>,
@@ -655,9 +639,9 @@ const Ic: Record<string, ReactNode> = {
     moon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>,
 };
 
-// ============================================================================
-// FLOATING UI HELPERS
-// ============================================================================
+
+
+
 
 const glassPanel = (bg: string): CSSProperties => ({
     background: bg === BG_WHITE ? "rgba(255,255,255,0.72)" : "rgba(20,20,22,0.62)",
@@ -698,12 +682,12 @@ function Divider({ bg, vertical = false }: { bg: string; vertical?: boolean }) {
     return <div style={{ background: c, [vertical ? "width" : "height"]: 1, [vertical ? "height" : "width"]: vertical ? 20 : "100%", margin: vertical ? "0 4px" : "4px 0" }} />;
 }
 
-// ============================================================================
-// MAIN COMPONENT
-// ============================================================================
+
+
+
 
 export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoom, setZoom, pan, setPan, onSave, onSync, savedToast, hasLocalCache }: DrawingPadProps) {
-    // Normalize bg to one of the two allowed values.
+    
     const safeBg: BgMode = bgColor === BG_WHITE ? BG_WHITE : BG_BLACK;
     const ink = getInkColor(safeBg);
     const muted = getMutedInk(safeBg);
@@ -759,9 +743,9 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
     useEffect(() => { if (!textInput || !textareaRef.current) return; requestAnimationFrame(() => { textareaRef.current?.focus(); textareaRef.current?.select(); }); }, [textInput]);
     useEffect(() => { if (editingLabelId == null || !labelTextareaRef.current) return; requestAnimationFrame(() => { labelTextareaRef.current?.focus(); labelTextareaRef.current?.select(); }); }, [editingLabelId]);
 
-    // ------------------------------------------------------------------------
-    // REDRAW
-    // ------------------------------------------------------------------------
+    
+    
+    
     const redraw = useCallback((previewShape: DrawShape | null) => {
         const canvas = canvasRef.current; if (!canvas) return;
         const ctx = canvas.getContext("2d"); if (!ctx) return;
@@ -775,19 +759,19 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
         const octx = off.getContext("2d")!;
         octx.save(); octx.translate(pan.x, pan.y); octx.scale(zoom, zoom);
 
-        // resolve bound arrow endpoints once for this frame
+        
         const resolved = shapes.map(s => {
             if (s.type !== "arrow") return s;
             const { start, end } = resolveArrowEndpoints(s, shapes);
             return { ...s, x1: start.x, y1: start.y, x2: end.x, y2: end.y };
         });
-        // Force monochrome ink — ignore stored s.color (legacy data) and force current ink.
+        
         resolved.forEach(s => {
             if (s.type === "text" && s.id === editingTextId) return;
             drawShape(octx, { ...s, color: inkNow }, inkNow, s.id === editingLabelId);
         });
 
-        // arrow labels
+        
         resolved.forEach(s => {
             if (s.type === "arrow" && s.label && s.id !== editingLabelId) {
                 const seg = getArrowMidSegmentResolved(s);
@@ -814,7 +798,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
         octx.restore();
         ctx.drawImage(off, 0, 0);
 
-        // selection overlays
+        
         ctx.save(); ctx.translate(pan.x, pan.y); ctx.scale(zoom, zoom);
         const activeIds: Set<number | string> = selectedIds.size > 0
             ? selectedIds
@@ -855,9 +839,9 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
         return { x: (e.clientX - r.left - pan.x) / zoom, y: (e.clientY - r.top - pan.y) / zoom };
     }, []);
 
-    // ------------------------------------------------------------------------
-    // HISTORY + EDITS
-    // ------------------------------------------------------------------------
+    
+    
+    
     const pushHistory = useCallback((snap: DrawShape[]) => { setUndoStack(u => [...u.slice(-50), snap]); setRedoStack([]); }, []);
 
     const undo = useCallback(() => {
@@ -923,9 +907,9 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
     const updateSelectedRoundedRadius = useCallback((r: number) => { if (!stateRef.current.selectedId) return; pushHistory(stateRef.current.shapes); setShapes(s => s.map(sh => sh.id === stateRef.current.selectedId ? { ...sh, roundedRadius: r } : sh)); }, [pushHistory, setShapes]);
     const updateSelectedFontSize = useCallback((s: number) => { if (!stateRef.current.selectedId) return; pushHistory(stateRef.current.shapes); setShapes(prev => prev.map(sh => { if (sh.id !== stateRef.current.selectedId) return sh; if (sh.type === "text") return { ...sh, fontSize: s }; if (isLabelEditableShape(sh)) return { ...sh, labelFontSize: s }; return sh; })); }, [pushHistory, setShapes]);
 
-    // ------------------------------------------------------------------------
-    // KEYBOARD
-    // ------------------------------------------------------------------------
+    
+    
+    
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
             if (textActiveRef.current) return;
@@ -959,15 +943,15 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
         const el = canvasRef.current; if (!el) return;
         const onWheel = (e: WheelEvent) => {
             e.preventDefault();
-            // Scale zoom smoothly based on the scroll amount (deltaY)
+            
             setZoom(z => Math.max(0.1, Math.min(20, z * Math.exp(-e.deltaY * 0.0015))));
         };
         el.addEventListener("wheel", onWheel, { passive: false }); return () => el.removeEventListener("wheel", onWheel);
     }, [setZoom]);
 
-    // ------------------------------------------------------------------------
-    // DOUBLE CLICK -> label/text edit
-    // ------------------------------------------------------------------------
+    
+    
+    
     const onDoubleClick = useCallback((e: ReactMouseEvent) => {
         const pos = toCanvas(e);
         const hit = [...stateRef.current.shapes].reverse().find(s => hitTest(s, pos.x, pos.y, stateRef.current.shapes));
@@ -984,9 +968,9 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
         setTool(TOOLS.SELECT);
     }, [toCanvas, openTextEdit, openLabelEdit]);
 
-    // ------------------------------------------------------------------------
-    // CURSOR
-    // ------------------------------------------------------------------------
+    
+    
+    
     const getCanvasCursor = useCallback((pos: Point): string => {
         if (isPanning) return "grabbing";
         if (tool === TOOLS.PAN) return "grab";
@@ -1014,9 +998,9 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
         return "crosshair";
     }, [isPanning, tool]);
 
-    // ------------------------------------------------------------------------
-    // MOUSE DOWN
-    // ------------------------------------------------------------------------
+    
+    
+    
     const onMouseDown = useCallback((e: ReactMouseEvent) => {
         if (textActiveRef.current) return;
         setJustDrawnId(null); setShowDlMenu(false);
@@ -1113,14 +1097,14 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
             return;
         }
 
-        // drawing tool
+        
         setIsDrawing(true); setStartPos(pos);
         if (tool === TOOLS.PEN || tool === TOOLS.ERASER) setCurrentPath([pos]);
     }, [tool, toCanvas, openTextEdit]);
 
-    // ------------------------------------------------------------------------
-    // MOUSE MOVE
-    // ------------------------------------------------------------------------
+    
+    
+    
     const onMouseMove = useCallback((e: ReactMouseEvent) => {
         if (isPanning) { setPan({ x: e.clientX - panStart.x, y: e.clientY - panStart.y }); return; }
         const pos = toCanvas(e);
@@ -1198,7 +1182,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
         const base: DrawShape = { id: "preview", type: "line", color: ink, strokeWidth, fill: fillColor, opacity, rounded, roundedRadius, x1: startPos.x, y1: startPos.y, x2: pos.x, y2: pos.y };
         const tmap: Partial<Record<Tool, ShapeType>> = { [TOOLS.LINE]: "line", [TOOLS.ARROW]: "arrow", [TOOLS.RECT]: "rect", [TOOLS.ELLIPSE]: "ellipse", [TOOLS.DIAMOND]: "diamond" };
         if (tmap[tool]) {
-            // For arrow preview: snap to anchors live and respect orthogonal-only render.
+            
             if (tool === TOOLS.ARROW) {
                 const startTarget = findBindingTarget(stateRef.current.shapes, { x: startPos.x, y: startPos.y });
                 const endTarget = findBindingTarget(stateRef.current.shapes, pos);
@@ -1215,9 +1199,9 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
         }
     }, [isPanning, panStart, tool, selMode, selOrigShape, selStartPos, resizeHandle, isDrawing, toCanvas, ink, strokeWidth, fillColor, opacity, rounded, roundedRadius, startPos, setPan, setShapes, getCanvasCursor]);
 
-    // ------------------------------------------------------------------------
-    // MOUSE UP
-    // ------------------------------------------------------------------------
+    
+    
+    
     const onMouseUp = useCallback((e: ReactMouseEvent) => {
         if (isPanning) { setIsPanning(false); return; }
         if (tool === TOOLS.SELECT) {
@@ -1270,9 +1254,9 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
         setJustDrawnId(baseId);
     }, [isPanning, tool, selMode, isDrawing, toCanvas, pushHistory, currentPath, ink, strokeWidth, fillColor, opacity, rounded, roundedRadius, startPos, setShapes]);
 
-    // ------------------------------------------------------------------------
-    // EXPORT
-    // ------------------------------------------------------------------------
+    
+    
+    
     const buildExportCanvas = () => {
         const src = canvasRef.current; if (!src) return null;
         const out = document.createElement("canvas"); out.width = src.width; out.height = src.height;
@@ -1288,9 +1272,9 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
     };
     const clearAll = useCallback(() => { pushHistory(stateRef.current.shapes); setShapes([]); setSelectedId(null); }, [pushHistory, setShapes]);
 
-    // ------------------------------------------------------------------------
-    // PANEL DERIVED
-    // ------------------------------------------------------------------------
+    
+    
+    
     const hasFill = ([TOOLS.RECT, TOOLS.ELLIPSE, TOOLS.DIAMOND] as Tool[]).includes(tool);
     const selShape = shapes.find(s => s.id === selectedId);
     const selHasFill = selShape && (selShape.type === "rect" || selShape.type === "ellipse" || selShape.type === "diamond");
@@ -1309,7 +1293,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
         { id: TOOLS.PAN, label: "Pan  H" },
     ];
 
-    // label edit overlay positioning
+    
     const labelEditShape = editingLabelId != null ? shapes.find(x => x.id === editingLabelId) : null;
     let labelOverlay: { x: number; y: number; w: number; h: number; fs: number; isArrow: boolean } | null = null;
     if (labelEditShape) {
@@ -1356,7 +1340,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                 textarea{resize:none;outline:none;font-family:inherit}
             `}</style>
 
-            {/* CANVAS — fullscreen */}
+            {}
             <canvas
                 ref={canvasRef}
                 style={{ display: "block", width: "100%", height: "100%", cursor: canvasCursor }}
@@ -1367,7 +1351,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                 onDoubleClick={onDoubleClick}
             />
 
-            {/* TOP-CENTER FLOATING TOOLBAR */}
+            {}
             <div style={{
                 position: "absolute", top: 16, left: "50%", transform: "translateX(-50%)",
                 ...panelStyle, padding: 5, display: "flex", alignItems: "center", gap: 2, zIndex: 30,
@@ -1379,7 +1363,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                 ))}
             </div>
 
-            {/* TOP-RIGHT: theme + zoom + actions */}
+            {}
             <div style={{
                 position: "absolute", top: 16, right: 16,
                 ...panelStyle, padding: 5, display: "flex", alignItems: "center", gap: 2, zIndex: 30,
@@ -1421,7 +1405,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                 </div>
             </div>
 
-            {/* TOP-LEFT: undo/redo/clear + save */}
+            {}
             <div style={{
                 position: "absolute", top: 16, left: 16,
                 ...panelStyle, padding: 5, display: "flex", alignItems: "center", gap: 2, zIndex: 30,
@@ -1444,7 +1428,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                 )}
             </div>
 
-            {/* BOTTOM-CENTER: contextual mini inspector */}
+            {}
             {(selShape || jdShape || hasFill) && !textInput && editingLabelId == null && (
                 <div style={{
                     position: "absolute", bottom: 20, left: "50%", transform: "translateX(-50%)",
@@ -1456,7 +1440,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                     </span>
                     <Divider bg={safeBg} vertical />
 
-                    {/* Stroke width */}
+                    {}
                     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                         <span style={{ color: muted, fontSize: 10 }}>Stroke</span>
                         {STROKE_WIDTHS.map(w => {
@@ -1476,7 +1460,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                         })}
                     </div>
 
-                    {/* Fill (shapes only) */}
+                    {}
                     {(selHasFill || (hasFill && !selShape)) && (
                         <>
                             <Divider bg={safeBg} vertical />
@@ -1502,7 +1486,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                         </>
                     )}
 
-                    {/* Rounded for rect tool */}
+                    {}
                     {((tool === TOOLS.RECT && !selShape) || (selShape?.type === "rect")) && (
                         <>
                             <Divider bg={safeBg} vertical />
@@ -1523,7 +1507,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                         </>
                     )}
 
-                    {/* Font Size */}
+                    {}
                    {((tool === TOOLS.TEXT && !selShape) || (selShape?.type === "text") || (selShape && isLabelEditableShape(selShape))) && (() => {
                         const currentSize = selShape ? (selShape.type === "text" ? selShape.fontSize : selShape.labelFontSize) ?? 18 : fontSize;
                         const selectValue = (currentSize === 14 || currentSize === 18 || currentSize === 24) ? currentSize.toString() : "18";
@@ -1551,19 +1535,10 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                         );
                     })()}
 
-                    {/* Label edit shortcut */}
-                    {/* {selShape && isLabelEditableShape(selShape) && (
-                        <>
-                            <Divider bg={safeBg} vertical />
-                            <button onClick={() => openLabelEdit(selShape)} style={{
-                                background: "transparent", border: "none", color: ink, fontSize: 11,
-                                cursor: "pointer", display: "flex", alignItems: "center", gap: 5, padding: "4px 8px",
-                                borderRadius: 6, opacity: 0.85, fontFamily: "inherit",
-                            }}>{Ic.edit} {selShape.label ? "Edit label" : "Add label"}</button>
-                        </>
-                    )} */}
+                    {}
+                    {}
 
-                    {/* Opacity */}
+                    {}
                     <Divider bg={safeBg} vertical />
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         <span style={{ color: muted, fontSize: 10 }}>Opacity</span>
@@ -1573,7 +1548,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                 </div>
             )}
 
-            {/* standalone text input overlay */}
+            {}
             {textInput && (() => {
                 const fs = editingTextId ? (stateRef.current.shapes.find(s => s.id === editingTextId)?.fontSize ?? 18) : (fontSize === "custom" ? customFontSize : fontSize);
                 const lines = (textVal ?? "").split("\n");
@@ -1609,7 +1584,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                 );
             })()}
 
-            {/* shape label edit overlay */}
+            {}
             {labelOverlay && (
                 <textarea
                     ref={labelTextareaRef}
