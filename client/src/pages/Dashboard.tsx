@@ -19,7 +19,11 @@ export default function Dashboard() {
   const [showModal, setShowModal] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
   const [creating, setCreating] = useState(false);
-  
+
+  // ✅ rename state
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [newTitle, setNewTitle] = useState("");
+
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -44,14 +48,17 @@ export default function Dashboard() {
   const handleCreateFile = async () => {
     try {
       setCreating(true);
-      // Create an empty file first
-      const res = await http.private.post<{ success: boolean; data: { id: string } }>("/drawing/create", { title: "Untitled Drawing" });
+
+      const res = await http.private.post<{ success: boolean; data: { id: string } }>(
+        "/drawing/create",
+        { title: "Untitled Drawing" }
+      );
+
       const newFileId = res.data?.id;
-      
+
       if (!newFileId) throw new Error("Failed to create file");
 
       if (aiPrompt.trim()) {
-        // Use AI to generate initial shapes
         await http.private.post("/ai/sendMessage", {
           fileId: newFileId,
           message: aiPrompt,
@@ -65,6 +72,32 @@ export default function Dashboard() {
     } finally {
       setCreating(false);
       setShowModal(false);
+    }
+  };
+
+  // ✅ rename handler
+  const handleRename = async (fileId: string) => {
+    if (!newTitle.trim()) {
+      setRenamingId(null);
+      return;
+    }
+
+    try {
+      await http.private.patch(`/drawing/file/${fileId}`, {
+        title: newTitle,
+      });
+
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.id === fileId ? { ...f, title: newTitle } : f
+        )
+      );
+
+      setRenamingId(null);
+      setNewTitle("");
+    } catch (err) {
+      console.error("Rename failed", err);
+      alert("Failed to rename file");
     }
   };
 
@@ -101,13 +134,43 @@ export default function Dashboard() {
             {files.map((file) => (
               <div
                 key={file.id}
-                onClick={() => navigate(`/draw/${file.id}`)}
                 className="group border border-gray-800 hover:border-white p-5 cursor-pointer transition-colors bg-black flex flex-col"
               >
-                <div className="flex-1 flex items-center justify-center min-h-[120px] mb-4 bg-gray-900 border border-gray-800 group-hover:border-white transition-colors">
-                   <span className="text-gray-500 text-xs uppercase tracking-widest">Canvas</span>
+                {/* Canvas preview */}
+                <div
+                  onClick={() => navigate(`/draw/${file.id}`)}
+                  className="flex-1 flex items-center justify-center min-h-[120px] mb-4 bg-gray-900 border border-gray-800 group-hover:border-white transition-colors"
+                >
+                  <span className="text-gray-500 text-xs uppercase tracking-widest">
+                    Canvas
+                  </span>
                 </div>
-                <h3 className="text-lg font-semibold truncate text-white">{file.title}</h3>
+
+                {/* Title (rename UI) */}
+                {renamingId === file.id ? (
+                  <input
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    onBlur={() => handleRename(file.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleRename(file.id);
+                      if (e.key === "Escape") setRenamingId(null);
+                    }}
+                    autoFocus
+                    className="bg-black border border-white px-2 py-1 text-white text-sm outline-none"
+                  />
+                ) : (
+                  <h3
+                    onDoubleClick={() => {
+                      setRenamingId(file.id);
+                      setNewTitle(file.title);
+                    }}
+                    className="text-lg font-semibold truncate text-white"
+                  >
+                    {file.title}
+                  </h3>
+                )}
+
                 <p className="text-xs text-gray-500 mt-1">
                   Updated: {new Date(file.updatedAt).toLocaleDateString()}
                 </p>
@@ -117,6 +180,7 @@ export default function Dashboard() {
         )}
       </div>
 
+      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
           <div className="bg-black border border-white p-8 max-w-lg w-full">
@@ -125,14 +189,14 @@ export default function Dashboard() {
               Would you like to use AI to generate the starting face of the drawing? 
               Describe what you want, or leave it blank for an empty canvas.
             </p>
-            
+
             <textarea
               value={aiPrompt}
               onChange={(e) => setAiPrompt(e.target.value)}
               placeholder="E.g., A flowchart for a user login process..."
               className="w-full bg-black border border-gray-700 p-3 text-white focus:border-white focus:outline-none min-h-[100px] mb-6 resize-y"
             />
-            
+
             <div className="flex justify-end gap-4">
               <button
                 onClick={() => setShowModal(false)}
@@ -146,7 +210,11 @@ export default function Dashboard() {
                 disabled={creating}
                 className="bg-white text-black px-6 py-2 text-sm font-bold hover:bg-gray-200 transition-colors disabled:opacity-50"
               >
-                {creating ? "Creating..." : (aiPrompt.trim() ? "Generate & Create" : "Create Empty")}
+                {creating
+                  ? "Creating..."
+                  : aiPrompt.trim()
+                  ? "Generate & Create"
+                  : "Create Empty"}
               </button>
             </div>
           </div>
