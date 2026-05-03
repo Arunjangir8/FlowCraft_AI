@@ -180,7 +180,7 @@ export default function Dashboard() {
                 {/* Canvas preview */}
                 <div
                   onClick={() => navigate(`/draw/${file.id}`)}
-                  className="flex-1 flex items-center justify-center min-h-[90px] sm:min-h-[110px] md:min-h-[120px] mb-3 sm:mb-4 bg-gray-900 border border-gray-800 group-hover:border-white transition-colors cursor-pointer active:opacity-80"
+                  className="flex-1 flex items-center justify-center min-h-[90px] sm:min-h-[110px] md:min-h-[120px] mb-3 sm:mb-4 bg-gray-900 border border-gray-800 mt-4 group-hover:border-white transition-colors cursor-pointer active:opacity-80"
                 >
                   <span className="text-gray-500 text-[10px] sm:text-xs uppercase tracking-widest">
                     Canvas
