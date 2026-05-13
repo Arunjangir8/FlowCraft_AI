@@ -5,7 +5,19 @@ import { env } from "../../config/env";
 import DrawingPad from "./Drawpad";
 import type { DrawShape, Point } from "./Drawpad";
 
+function useIsMobile() {
+    const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+    useEffect(() => {
+        const mq = window.matchMedia("(max-width: 767px)");
+        const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+        mq.addEventListener("change", handler);
+        return () => mq.removeEventListener("change", handler);
+    }, []);
+    return isMobile;
+}
+
 export default function DrawingPadPage() {
+    const isMobile = useIsMobile();
     const { fileId } = useParams<{ fileId: string }>();
     const navigate = useNavigate();
     const creatingFileRef = useRef(false);
@@ -169,6 +181,7 @@ export default function DrawingPadPage() {
             onSync={onSync}
             savedToast={savedToast}
             hasLocalCache={hasLocalCache}
+            readOnly={isMobile}
         />
     );
 }

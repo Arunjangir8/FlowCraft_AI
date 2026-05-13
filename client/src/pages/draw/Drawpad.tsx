@@ -76,6 +76,7 @@ export interface DrawingPadProps {
     onSync: () => Promise<void>;
     savedToast: boolean;
     hasLocalCache: boolean;
+    readOnly?: boolean;
 }
 
 
@@ -695,7 +696,7 @@ function Divider({ bg, vertical = false }: { bg: string; vertical?: boolean }) {
 
 
 
-export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoom, setZoom, pan, setPan, onSave, onSync, savedToast, hasLocalCache }: DrawingPadProps) {
+export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoom, setZoom, pan, setPan, onSave, onSync, savedToast, hasLocalCache, readOnly = false }: DrawingPadProps) {
     
     const safeBg: BgMode = bgColor === BG_WHITE ? BG_WHITE : BG_BLACK;
     const ink = getInkColor(safeBg);
@@ -849,6 +850,21 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
         return { x: (e.clientX - r.left - pan.x) / zoom, y: (e.clientY - r.top - pan.y) / zoom };
     }, []);
 
+    // Mobile one-finger pan
+    const mobilePanRef = useRef<{ startX: number; startY: number; panX: number; panY: number } | null>(null);
+    const onMobileTouchStart = useCallback((e: React.TouchEvent) => {
+        if (e.touches.length !== 1) return;
+        const t = e.touches[0];
+        mobilePanRef.current = { startX: t.clientX, startY: t.clientY, panX: stateRef.current.pan.x, panY: stateRef.current.pan.y };
+    }, []);
+    const onMobileTouchMove = useCallback((e: React.TouchEvent) => {
+        e.preventDefault();
+        if (!mobilePanRef.current || e.touches.length !== 1) return;
+        const t = e.touches[0];
+        setPan({ x: mobilePanRef.current.panX + (t.clientX - mobilePanRef.current.startX), y: mobilePanRef.current.panY + (t.clientY - mobilePanRef.current.startY) });
+    }, [setPan]);
+    const onMobileTouchEnd = useCallback(() => { mobilePanRef.current = null; }, []);
+
     
     
     
@@ -953,11 +969,16 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
         const el = canvasRef.current; if (!el) return;
         const onWheel = (e: WheelEvent) => {
             e.preventDefault();
-            
-            setZoom(z => Math.max(0.1, Math.min(20, z * Math.exp(-e.deltaY * 0.0015))));
+            if (e.ctrlKey) {
+                // pinch-to-zoom (trackpad pinch or Ctrl+scroll)
+                setZoom(z => Math.max(0.1, Math.min(20, z * Math.exp(-e.deltaY * 0.0015))));
+            } else {
+                // two-finger scroll → pan
+                setPan(p => ({ x: p.x - e.deltaX, y: p.y - e.deltaY }));
+            }
         };
         el.addEventListener("wheel", onWheel, { passive: false }); return () => el.removeEventListener("wheel", onWheel);
-    }, [setZoom]);
+    }, [setZoom, setPan]);
 
     
     
@@ -1350,18 +1371,40 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                 textarea{resize:none;outline:none;font-family:inherit}
             `}</style>
 
-            {}
+            {/* canvas */}
             <canvas
                 ref={canvasRef}
-                style={{ display: "block", width: "100%", height: "100%", cursor: canvasCursor }}
-                onMouseDown={onMouseDown}
-                onMouseMove={onMouseMove}
-                onMouseUp={onMouseUp}
-                onMouseLeave={onMouseUp}
-                onDoubleClick={onDoubleClick}
+                style={{ display: "block", width: "100%", height: "100%", cursor: readOnly ? "grab" : canvasCursor, touchAction: readOnly ? "none" : "auto" }}
+                onMouseDown={readOnly ? undefined : onMouseDown}
+                onMouseMove={readOnly ? undefined : onMouseMove}
+                onMouseUp={readOnly ? undefined : onMouseUp}
+                onMouseLeave={readOnly ? undefined : onMouseUp}
+                onDoubleClick={readOnly ? undefined : onDoubleClick}
+                onTouchStart={readOnly ? onMobileTouchStart : undefined}
+                onTouchMove={readOnly ? onMobileTouchMove : undefined}
+                onTouchEnd={readOnly ? onMobileTouchEnd : undefined}
             />
 
-            {}
+            {/* view-only banner for mobile */}
+            {readOnly && (
+                <div style={{
+                    position: "absolute", bottom: 16, left: "50%", transform: "translateX(-50%)",
+                    ...panelStyle, padding: "6px 6px 6px 14px", fontSize: 11, zIndex: 30,
+                    display: "flex", alignItems: "center", gap: 10, whiteSpace: "nowrap",
+                }}>
+                    <span style={{ opacity: 0.6 }}>View only · drag to pan</span>
+                    <button onClick={() => navigate("/dashboard")} style={{
+                        background: "transparent", border: `1px solid ${ink === "#0b0b0d" ? "rgba(0,0,0,0.15)" : "rgba(255,255,255,0.18)"}`,
+                        color: ink, borderRadius: 8, padding: "4px 10px", fontSize: 11,
+                        cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 5,
+                    }}>
+                        {Ic.back} Back
+                    </button>
+                </div>
+            )}
+
+            {/* tools toolbar */}
+            {!readOnly && (
             <div style={{
                 position: "absolute", top: 16, left: "50%", transform: "translateX(-50%)",
                 ...panelStyle, padding: 5, display: "flex", alignItems: "center", gap: 2, zIndex: 30,
@@ -1372,8 +1415,10 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                     </FloatingBtn>
                 ))}
             </div>
+            )}
 
-            {}
+            {/* top-right: theme + zoom + export */}
+            {!readOnly && (
             <div style={{
                 position: "absolute", top: 16, right: 16,
                 ...panelStyle, padding: 5, display: "flex", alignItems: "center", gap: 2, zIndex: 30,
@@ -1414,8 +1459,10 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                     )}
                 </div>
             </div>
+            )}
 
-            {}
+            {/* top-left: back + undo/redo + save */}
+            {!readOnly && (
             <div style={{
                 position: "absolute", top: 16, left: 16,
                 ...panelStyle, padding: 5, display: "flex", alignItems: "center", gap: 2, zIndex: 30,
@@ -1438,9 +1485,10 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                     }}>↓ Sync</button>
                 )}
             </div>
+            )}
 
-            {}
-            {(selShape || jdShape || hasFill) && !textInput && editingLabelId == null && (
+            {/* bottom properties bar */}
+            {!readOnly && (selShape || jdShape || hasFill) && !textInput && editingLabelId == null && (
                 <div style={{
                     position: "absolute", bottom: 20, left: "50%", transform: "translateX(-50%)",
                     ...panelStyle, padding: "8px 12px", display: "flex", alignItems: "center", gap: 12, zIndex: 30,
@@ -1559,8 +1607,8 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                 </div>
             )}
 
-            {}
-            {textInput && (() => {
+            {/* text input overlay */}
+            {!readOnly && textInput && (() => {
                 const fs = editingTextId ? (stateRef.current.shapes.find(s => s.id === editingTextId)?.fontSize ?? 18) : (fontSize === "custom" ? customFontSize : fontSize);
                 const lines = (textVal ?? "").split("\n");
                 const longest = Math.max(...lines.map(l => l.length), 4);
@@ -1595,8 +1643,8 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                 );
             })()}
 
-            {}
-            {labelOverlay && (
+            {/* label edit overlay */}
+            {!readOnly && labelOverlay && (
                 <textarea
                     ref={labelTextareaRef}
                     value={labelEditVal}
