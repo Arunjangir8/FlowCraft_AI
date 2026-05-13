@@ -98,6 +98,11 @@ class FileSaveService {
     return prisma.drawingContent.findUnique({ where: { fileId } });
   }
 
+  async getFileTitle(fileId: string): Promise<string | null> {
+    const file = await prisma.file.findUnique({ where: { id: fileId }, select: { title: true } });
+    return file?.title ?? null;
+  }
+
   async renameFile(fileId: string, userId: string, title: string) {
     await this.assertCanEdit(fileId, userId);
     return prisma.file.update({
@@ -123,6 +128,23 @@ class FileSaveService {
       include: { drawing: { select: { bgColor: true, updatedAt: true } } },
       orderBy: { updatedAt: "desc" },
     });
+  }
+
+  async countAiFiles(userId: string): Promise<number> {
+    const rows = await prisma.aiConversationSession.findMany({
+      where: { userId, fileId: { not: null }, deletedAt: null },
+      select: { fileId: true },
+      distinct: ["fileId"],
+    });
+    return rows.length;
+  }
+
+  async fileHasAiSession(userId: string, fileId: string): Promise<boolean> {
+    const session = await prisma.aiConversationSession.findFirst({
+      where: { userId, fileId, deletedAt: null },
+      select: { id: true },
+    });
+    return session !== null;
   }
 
   private async assertCanView(fileId: string, userId: string) {

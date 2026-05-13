@@ -14,10 +14,15 @@ type FileData = {
   };
 };
 
+const AI_FILE_LIMIT = 2;
+const AI_LIMIT_CONTACT = "arunjangir9987@gmail.com";
+
 export default function Dashboard() {
   const [files, setFiles] = useState<FileData[]>([]);
+  const [aiFilesUsed, setAiFilesUsed] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showLimitModal, setShowLimitModal] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
   const [creating, setCreating] = useState(false);
 
@@ -42,9 +47,12 @@ export default function Dashboard() {
   const loadFiles = async () => {
     try {
       setLoading(true);
-      const res = await http.private.get<{ success: boolean; data: FileData[] }>("/drawing/files");
+      const res = await http.private.get<{ success: boolean; data: FileData[]; aiFilesUsed: number }>("/drawing/files");
       if (res.data) {
         setFiles(res.data);
+      }
+      if (typeof res.aiFilesUsed === "number") {
+        setAiFilesUsed(res.aiFilesUsed);
       }
     } catch (err) {
       console.error("Failed to load files", err);
@@ -54,6 +62,12 @@ export default function Dashboard() {
   };
 
   const handleCreateFile = async () => {
+    if (aiPrompt.trim() && aiFilesUsed >= AI_FILE_LIMIT) {
+      setShowModal(false);
+      setShowLimitModal(true);
+      return;
+    }
+
     try {
       setCreating(true);
 
@@ -70,12 +84,18 @@ export default function Dashboard() {
           fileId: newFileId,
           message: aiPrompt,
         });
+        setAiFilesUsed((prev) => prev + 1);
       }
 
       navigate(`/draw/${newFileId}`);
-    } catch (err) {
-      console.error("Error creating file", err);
-      alert("Failed to create file. Please try again.");
+    } catch (err: any) {
+      if (err?.message === "AI_FILE_LIMIT_EXCEEDED") {
+        setShowModal(false);
+        setShowLimitModal(true);
+      } else {
+        console.error("Error creating file", err);
+        alert("Failed to create file. Please try again.");
+      }
     } finally {
       setCreating(false);
       setShowModal(false);
@@ -244,6 +264,47 @@ export default function Dashboard() {
               >
                 {deleting ? "Deleting..." : "Delete"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── AI Limit Modal ── */}
+      {showLimitModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-black border border-white p-6 sm:p-8 w-full sm:max-w-md sm:w-full rounded-t-2xl sm:rounded-none">
+            <h2 className="text-xl sm:text-2xl font-bold mb-3">AI File Limit Reached</h2>
+            <p className="text-gray-400 text-sm mb-2">
+              You can only create a maximum of <span className="text-white font-semibold">{AI_FILE_LIMIT} files</span> with AI help.
+            </p>
+            <p className="text-gray-400 text-sm mb-6">
+              Need more? Contact us at{" "}
+              <a
+                href={`mailto:${AI_LIMIT_CONTACT}`}
+                className="text-white underline hover:text-gray-300 transition-colors"
+              >
+                {AI_LIMIT_CONTACT}
+              </a>
+            </p>
+            <div className="flex gap-3">
+            <button
+              onClick={() => setShowLimitModal(false)}
+              className="w-full bg-white text-black py-2.5 text-sm font-bold hover:bg-gray-200 transition-colors"
+            >
+              Got it
+            </button>
+            <button
+              onClick={() => {
+                setAiPrompt("");
+                handleCreateFile();
+              }}
+              disabled={creating}
+              className="w-full bg-white text-black py-2.5 text-sm font-bold hover:bg-gray-200 transition-colors"
+            >
+              {creating
+                  ? "Creating..."
+                  : 'Create Empty'}
+            </button>
             </div>
           </div>
         </div>

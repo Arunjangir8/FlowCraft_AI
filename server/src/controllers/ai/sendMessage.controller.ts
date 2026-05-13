@@ -46,6 +46,17 @@ export const sendMessage = async (req: Request, res: Response, next: NextFunctio
       });
     }
 
+    const isNewAiFile = !(await fileSaveService.fileHasAiSession(user.id, fileId));
+    if (isNewAiFile) {
+      const aiFileCount = await fileSaveService.countAiFiles(user.id);
+      if (aiFileCount >= 2) {
+        throw new APIError({
+          message: "AI_FILE_LIMIT_EXCEEDED",
+          httpCode: HttpStatusCode.TOO_MANY_REQUESTS,
+        });
+      }
+    }
+
     const resolvedSessionId = await saveAiMessage({
       fileId,
       content: message,
@@ -69,6 +80,21 @@ export const sendMessage = async (req: Request, res: Response, next: NextFunctio
       generatedShapes: agentResult.newShapes,
     })
 
+    let autoTitle: string | undefined;
+
+    if (agentResult.newShapes && agentResult.newShapes.length > 0) {
+      const currentTitle = await fileSaveService.getFileTitle(fileId);
+      const isUntitled = !currentTitle || currentTitle === "Untitled Drawing";
+      autoTitle = isUntitled && agentResult.suggestedTitle ? agentResult.suggestedTitle : undefined;
+
+      await fileSaveService.saveDrawing(fileId, user.id, {
+        shapesJson: agentResult.allShapes as any,
+        canvasWidth: file.canvasWidth ?? 1200,
+        canvasHeight: file.canvasHeight ?? 900,
+        ...(autoTitle ? { title: autoTitle } : {}),
+      });
+    }
+
     return res.status(200).json({
       reply: agentResult.reply,
       shapes: {
@@ -79,6 +105,7 @@ export const sendMessage = async (req: Request, res: Response, next: NextFunctio
             : agentResult.allShapes
           : null,
       },
+      ...(autoTitle && { newTitle: autoTitle }),
       ...(agentResult.mermaidDiagram && {
         mermaidDiagram: agentResult.mermaidDiagram,
         diagramType: agentResult.diagramType,

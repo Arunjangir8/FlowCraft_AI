@@ -42,7 +42,10 @@ export async function generateShapesFromPrompt(
         .replace(/\n?```$/i, "")
         .trim();
 
-    let shapes: DrawShape[] = JSON.parse(cleaned);
+    const parsed = JSON.parse(cleaned);
+    let shapes: DrawShape[] = Array.isArray(parsed)
+        ? parsed
+        : (parsed.shapes ?? parsed.elements ?? parsed.data ?? Object.values(parsed).find((v) => Array.isArray(v)) ?? []);
     shapes = shapes.map((s, i) => ({ ...s, id: idOffset + i + 1 }));
 
     return shapes;
@@ -90,6 +93,7 @@ export interface AgentRunResult {
     toolsUsed: string[];
     mermaidDiagram?: string;
     diagramType?: string;
+    suggestedTitle?: string;
 }
 
 type GeminiAgentDecision =
@@ -97,6 +101,7 @@ type GeminiAgentDecision =
           action: "generate_shapes";
           reply: string;
           prompt: string;
+          suggestedTitle?: string;
           canvasWidth?: number;
           canvasHeight?: number;
       }
@@ -158,18 +163,21 @@ Supported actions:
 - "chat"
 
 Rules:
-- If the user wants something drawn on the canvas, use "generate_shapes".
-- If the user asks for a flowchart, architecture, sequence, ER, state, class, or graph-like diagram, use "generate_diagram".
+- If the user wants anything drawn, visualised, or created on the canvas — including flowcharts, workflows, process flows, architecture diagrams, mind maps, org charts, network diagrams — use "generate_shapes". These must be rendered as canvas shapes (rect, diamond, arrow, text, etc.), NOT as Mermaid text.
+- ONLY use "generate_diagram" if the user explicitly asks for Mermaid syntax, a UML sequence diagram, ER diagram, class diagram, or state machine where text output is acceptable.
 - If the user asks what is currently on the canvas, use "describe_drawing".
 - If the user wants existing shapes modified, use "transform_shapes".
 - If the user asks for inspiration, use "suggest_drawing_ideas".
 - Otherwise use "chat".
 
+IMPORTANT: flowchart, workflow, process, architecture, and "create a diagram" requests → always "generate_shapes".
+
 For "generate_shapes", return:
 {
   "action": "generate_shapes",
   "reply": "short friendly message",
-  "prompt": "rich drawing prompt",
+  "prompt": "rich drawing prompt — include all steps/nodes, specify exact layout (top-to-bottom or left-to-right), and instruct arrows to connect center-bottom of source to center-top of target with no overlap. Do NOT specify any colors — shapes use theme defaults.",
+  "suggestedTitle": "concise 2-5 word title describing what is being drawn, e.g. 'Employee Leave Approval Flow'",
   "canvasWidth": ${canvasWidth},
   "canvasHeight": ${canvasHeight}
 }
@@ -306,5 +314,6 @@ ${userMessage}
         toolsUsed,
         mermaidDiagram,
         diagramType,
+        suggestedTitle: decision.action === "generate_shapes" ? decision.suggestedTitle : undefined,
     };
 }
