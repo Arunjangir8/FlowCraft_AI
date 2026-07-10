@@ -196,6 +196,7 @@ export default function DrawingPadPage() {
             savedToast={savedToast}
             hasLocalCache={hasLocalCache}
             readOnly={isMobile}
+            fileId={fileId}
         />
     );
 }

@@ -3,6 +3,9 @@ import {
     type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode
 } from "react";
 import { useNavigate } from "react-router-dom";
+import AiEditPanel from "./ai-edit/AiEditPanel";
+import { useAiEdit } from "./ai-edit/useAiEdit";
+import { lerpPreviewShapes } from "./ai-edit/operations";
 
 
 export const TOOLS = {
@@ -79,6 +82,7 @@ export interface DrawingPadProps {
     savedToast: boolean;
     hasLocalCache: boolean;
     readOnly?: boolean;
+    fileId?: string;
 }
 
 
@@ -661,6 +665,7 @@ const Ic: Record<string, ReactNode> = {
     sun: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" /></svg>,
     moon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>,
     back: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>,
+    sparkle: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M12 4l1.9 5.1L19 11l-5.1 1.9L12 18l-1.9-5.1L5 11l5.1-1.9z" /><path d="M19 3l.6 1.7L21.3 5.3l-1.7.6L19 7.6l-.6-1.7-1.7-.6 1.7-.6z" /></svg>,
 };
 
 
@@ -710,7 +715,7 @@ function Divider({ bg, vertical = false }: { bg: string; vertical?: boolean }) {
 
 
 
-export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoom, setZoom, pan, setPan, onSave, onSync, savedToast, hasLocalCache, readOnly = false }: DrawingPadProps) {
+export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoom, setZoom, pan, setPan, onSave, onSync, savedToast, hasLocalCache, readOnly = false, fileId }: DrawingPadProps) {
     
     const safeBg: BgMode = bgColor === BG_WHITE ? BG_WHITE : BG_BLACK;
     const ink = getInkColor(safeBg);
@@ -762,6 +767,13 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
     const [canvasCursor, setCanvasCursor] = useState("crosshair");
     const navigate = useNavigate();
 
+    // AI edit: preview render state lives in a ref so redraw() can read it
+    // without being re-created; the rAF animation drives repaints directly.
+    const aiEdit = useAiEdit(fileId);
+    const [aiOpen, setAiOpen] = useState(false);
+    const aiPreviewRef = useRef<{ display: DrawShape[]; created: Set<string>; updated: Set<string>; deletedShapes: DrawShape[] } | null>(null);
+    const aiRafRef = useRef(0);
+
     useEffect(() => { stateRef.current = { shapes, zoom, pan, selectedId, selectedIds, editingTextId, editingLabelId }; }, [shapes, zoom, pan, selectedId, selectedIds, editingTextId, editingLabelId]);
     useEffect(() => { bgColorRef.current = safeBg; }, [safeBg]);
     useEffect(() => { textActiveRef.current = textInput !== null || editingLabelId !== null; }, [textInput, editingLabelId]);
@@ -785,10 +797,18 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
         const octx = off.getContext("2d")!;
         octx.save(); octx.setTransform(dpr, 0, 0, dpr, 0, 0); octx.translate(pan.x, pan.y); octx.scale(zoom, zoom);
 
-        
-        const resolved = shapes.map(s => {
+        // While an AI edit preview is active, render its shapes instead of the
+        // committed canvas; deleted shapes stay behind as faded ghosts.
+        const aiPrev = aiPreviewRef.current;
+        const sceneShapes = aiPrev ? aiPrev.display : shapes;
+        if (aiPrev) {
+            aiPrev.deletedShapes.forEach(s =>
+                drawShape(octx, { ...s, color: inkNow, opacity: 0.15 * (s.opacity ?? 1) }, inkNow));
+        }
+
+        const resolved = sceneShapes.map(s => {
             if (s.type !== "arrow") return s;
-            const { start, end } = resolveArrowEndpoints(s, shapes);
+            const { start, end } = resolveArrowEndpoints(s, sceneShapes);
             return { ...s, x1: start.x, y1: start.y, x2: end.x, y2: end.y };
         });
         
@@ -819,6 +839,24 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                 octx.restore();
             }
         });
+
+        // AI preview highlights: green = created, blue = updated
+        if (aiPrev) {
+            const hl = (s: DrawShape, color: string) => {
+                const b = getBounds(s);
+                octx.save();
+                octx.strokeStyle = color;
+                octx.lineWidth = 1.5 / zoom;
+                octx.setLineDash([6 / zoom, 4 / zoom]);
+                octx.strokeRect(b.x - 6, b.y - 6, b.w + 12, b.h + 12);
+                octx.restore();
+            };
+            resolved.forEach(s => {
+                const k = String(s.id);
+                if (aiPrev.created.has(k)) hl(s, "#34d399");
+                else if (aiPrev.updated.has(k)) hl(s, "#38bdf8");
+            });
+        }
 
         if (previewShape) drawShape(octx, { ...previewShape, color: previewShape.color ?? inkNow }, inkNow);
         octx.restore();
@@ -904,6 +942,64 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
         });
     }, [setShapes]);
 
+
+
+
+    const submitAiEdit = useCallback((instruction: string) => {
+        const { shapes, zoom, selectedId, selectedIds } = stateRef.current;
+        const selection = [...(selectedIds.size ? selectedIds : selectedId != null ? [selectedId] : [])];
+        setSelectedId(null); setSelectedIds(new Set());
+        aiEdit.submit(instruction, {
+            shapes,
+            canvas: {
+                width: window.innerWidth,
+                height: window.innerHeight,
+                background: bgColorRef.current,
+                zoom,
+                selectedShapeIds: selection,
+            },
+        });
+    }, [aiEdit.submit]);
+
+    // Accept commits the whole AI edit as ONE undo entry.
+    const acceptAiEdit = useCallback(() => {
+        const pv = aiEdit.preview;
+        if (!pv) return;
+        pushHistory(stateRef.current.shapes);
+        setShapes(pv.shapes);
+        setSelectedId(null); setSelectedIds(new Set());
+        aiEdit.reset();
+    }, [aiEdit.preview, aiEdit.reset, pushHistory, setShapes]);
+
+    const rejectAiEdit = useCallback(() => { aiEdit.reset(); }, [aiEdit.reset]);
+
+    // Animate old → new positions when a preview arrives (ease-out, ~550ms).
+    useEffect(() => {
+        const pv = aiEdit.preview;
+        cancelAnimationFrame(aiRafRef.current);
+        if (!pv) {
+            if (aiPreviewRef.current) { aiPreviewRef.current = null; redraw(null); }
+            return;
+        }
+        const baseById = new Map(stateRef.current.shapes.map(s => [String(s.id), s] as const));
+        const start = performance.now();
+        const DUR = 550;
+        const ease = (t: number) => 1 - Math.pow(1 - t, 3);
+        const tick = (now: number) => {
+            const t = Math.min(1, (now - start) / DUR);
+            aiPreviewRef.current = {
+                display: lerpPreviewShapes(baseById, pv.shapes, pv.created, pv.updated, ease(t)),
+                created: pv.created,
+                updated: pv.updated,
+                deletedShapes: pv.deletedShapes,
+            };
+            redraw(null);
+            if (t < 1) aiRafRef.current = requestAnimationFrame(tick);
+        };
+        aiRafRef.current = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(aiRafRef.current);
+    }, [aiEdit.preview, redraw]);
+
     const commitText = useCallback(() => {
         const ti = textInput, val = textVal.trim();
         if (ti && val) {
@@ -966,6 +1062,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
             if (cmd && key === "z" && !e.shiftKey) { e.preventDefault(); undo(); return; }
             if (cmd && ((key === "z" && e.shiftKey) || key === "y")) { e.preventDefault(); redo(); return; }
             if (e.key === "Escape") {
+                if (aiPreviewRef.current) { rejectAiEdit(); return; }
                 setSelectedId(null); setSelectedIds(new Set());
                 setPreview(null); setIsDrawing(false); setCurrentPath([]);
                 return;
@@ -997,7 +1094,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
             }
         };
         window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey);
-    }, [undo, redo, pushHistory, setShapes]);
+    }, [undo, redo, pushHistory, setShapes, rejectAiEdit]);
 
     // Zoom keeping the given screen point (canvas-relative CSS px) fixed.
     const zoomAt = useCallback((factor: number, cx?: number, cy?: number) => {
@@ -1031,6 +1128,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
     
     
     const onDoubleClick = useCallback((e: ReactMouseEvent) => {
+        if (aiPreviewRef.current) return;
         const pos = toCanvas(e);
         const hit = [...stateRef.current.shapes].reverse().find(s => hitTest(s, pos.x, pos.y, stateRef.current.shapes));
         if (!hit) return;
@@ -1086,6 +1184,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
     
     const onMouseDown = useCallback((e: ReactPointerEvent) => {
         if (textActiveRef.current) return;
+        if (aiPreviewRef.current) return; // canvas is frozen while an AI preview is pending
         if (!e.isPrimary) return; // ignore extra touch points
         try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* older browsers */ }
         setJustDrawnId(null); setShowDlMenu(false);
@@ -1507,6 +1606,15 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                 position: "absolute", top: 16, right: 16,
                 ...panelStyle, padding: 5, display: "flex", alignItems: "center", gap: 2, zIndex: 30,
             }}>
+                {fileId && (
+                    <>
+                        <FloatingBtn label="AI Edit" active={aiOpen} bg={safeBg}
+                            onClick={() => { if (aiOpen) rejectAiEdit(); setAiOpen(o => !o); }}>
+                            {Ic.sparkle}
+                        </FloatingBtn>
+                        <Divider bg={safeBg} vertical />
+                    </>
+                )}
                 <FloatingBtn label={safeBg === BG_WHITE ? "Switch to dark" : "Switch to light"} bg={safeBg}
                     onClick={() => setBgColor(safeBg === BG_WHITE ? BG_BLACK : BG_WHITE)}>
                     {safeBg === BG_WHITE ? Ic.moon : Ic.sun}
@@ -1731,6 +1839,29 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                     />
                 );
             })()}
+
+            {/* AI edit panel */}
+            {!readOnly && aiOpen && (
+                <AiEditPanel
+                    phase={aiEdit.phase}
+                    message={aiEdit.message}
+                    error={aiEdit.error}
+                    loadingMsg={aiEdit.loadingMsg}
+                    opCounts={aiEdit.preview ? {
+                        created: aiEdit.preview.created.size,
+                        updated: aiEdit.preview.updated.size,
+                        deleted: aiEdit.preview.deletedShapes.length,
+                    } : null}
+                    panelStyle={panelStyle}
+                    ink={ink}
+                    muted={muted}
+                    isLight={safeBg === BG_WHITE}
+                    onSubmit={submitAiEdit}
+                    onAccept={acceptAiEdit}
+                    onReject={rejectAiEdit}
+                    onClose={() => { rejectAiEdit(); setAiOpen(false); }}
+                />
+            )}
 
             {/* label edit overlay */}
             {!readOnly && labelOverlay && (
