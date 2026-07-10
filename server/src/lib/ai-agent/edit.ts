@@ -3,7 +3,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 
 const openaiEdit = new ChatOpenAI({
-    model: "gpt-4o-mini",
+    model: "gpt-4o",
     apiKey: process.env.OPENAI_API_KEY,
     temperature: 0.2,
     timeout: 45_000,

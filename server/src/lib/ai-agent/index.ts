@@ -8,7 +8,7 @@ import {
 } from "./tools";
 
 const openaiJson = new ChatOpenAI({
-    model: "gpt-4o-mini",
+    model: "gpt-4o",
     apiKey: process.env.OPENAI_API_KEY,
     temperature: 0.7,
     modelKwargs: {
@@ -17,7 +17,7 @@ const openaiJson = new ChatOpenAI({
 });
 
 const openaiText = new ChatOpenAI({
-    model: "gpt-4o-mini",
+    model: "gpt-4o",
     apiKey: process.env.OPENAI_API_KEY,
     temperature: 0.4,
 });
