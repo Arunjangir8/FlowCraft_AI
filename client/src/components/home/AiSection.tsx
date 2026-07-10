@@ -43,6 +43,19 @@ const pop = (i: number) => ({
   },
 });
 
+// Connector lines/paths shouldn't scale in — a thin line scaling from
+// 0.6 shrinks toward its own center, which briefly renders as a gap on
+// both ends before it reaches full size. They just fade in at full
+// length instead, so they always read as touching their boxes,
+// regardless of when the animation is captured.
+const lineIn = (i: number) => ({
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { duration: 0.5, ease: EASE, delay: 1.8 + i * 0.25 },
+  },
+});
+
 const capabilities = [
   {
     name: "Generate",
@@ -107,22 +120,75 @@ export default function AiSection() {
               viewport={{ once: true, margin: "-120px" }}
               aria-hidden
             >
-              <motion.rect x="30" y="95" width="120" height="60" rx="10" fill="none" stroke="#fff" strokeOpacity="0.85" strokeWidth="2" variants={pop(0)} />
-              <motion.rect x="190" y="95" width="120" height="60" rx="30" fill="none" stroke="var(--color-accent)" strokeWidth="2" variants={pop(1)} />
-              <motion.rect x="350" y="95" width="100" height="60" rx="10" fill="none" stroke="#fff" strokeOpacity="0.85" strokeWidth="2" variants={pop(2)} />
-              <motion.path d="M150 125h40" stroke="#fff" strokeOpacity="0.5" strokeWidth="2" strokeLinecap="round" variants={pop(1)} />
-              <motion.path d="M310 125h40" stroke="#fff" strokeOpacity="0.5" strokeWidth="2" strokeLinecap="round" variants={pop(2)} />
+              {/* the spark: where the prompt turns into shapes */}
               <motion.path
-                d="M250 155v50c0 8-6 14-14 14H104c-8 0-14-6-14-14v-50"
-                fill="none" stroke="var(--color-coral)" strokeWidth="2" strokeDasharray="5 6" strokeLinecap="round"
-                variants={pop(3)}
+                d="M36 118l1.8 6L44 126l-6.2 1.8L36 134l-1.8-6.2L28 126l6.2-1.8z"
+                fill="var(--color-accent)" variants={pop(0)}
               />
-              <motion.text x="240" y="131" textAnchor="middle" fill="var(--color-accent)" fontSize="13" fontFamily="Inter, sans-serif" variants={pop(1)}>
-                pay
+
+              {/* Cart */}
+              <motion.g variants={pop(0.3)}>
+                <rect x="66" y="28" width="104" height="52" rx="11" fill="none" stroke="#fff" strokeOpacity="0.22" strokeWidth="2" transform="rotate(2.5 118 54)" />
+                <rect x="64" y="26" width="104" height="52" rx="10" fill="none" stroke="#fff" strokeOpacity="0.85" strokeWidth="2" transform="rotate(-2 116 52)" />
+                <text x="116" y="57" textAnchor="middle" fill="rgba(255,255,255,0.85)" fontSize="12" fontFamily="Inter, sans-serif">Cart</text>
+              </motion.g>
+
+              <motion.path d="M36 118C42 95 55 68 64 52" fill="none" stroke="#fff" strokeOpacity="0.4" strokeWidth="2" strokeLinecap="round" variants={lineIn(0.5)} />
+              <motion.path d="M150 78C180 85 200 82 225 90" fill="none" stroke="#fff" strokeOpacity="0.5" strokeWidth="2" strokeLinecap="round" variants={lineIn(0.9)} />
+
+              {/* Pay — the node the AI is still actively holding, marked
+                  by a selection marquee + resize handles, same affordance
+                  a person would see after drawing it themselves */}
+              <motion.g variants={pop(1)}>
+                <rect x="187" y="92" width="130" height="76" rx="38" fill="none" stroke="var(--color-accent)" strokeOpacity="0.3" strokeWidth="2" transform="rotate(1 252 130)" />
+                <rect x="185" y="90" width="130" height="76" rx="38" fill="none" stroke="var(--color-accent)" strokeWidth="2" transform="rotate(-0.8 250 128)" />
+                <text x="250" y="134" textAnchor="middle" fill="var(--color-accent)" fontSize="13" fontFamily="Inter, sans-serif">pay</text>
+              </motion.g>
+
+              <motion.g variants={lineIn(2.2)}>
+                <rect x="177" y="82" width="146" height="92" rx="4" fill="none" stroke="#fff" strokeOpacity="0.4" strokeWidth="1.2" strokeDasharray="2 5" />
+                <rect x="174" y="79" width="6" height="6" fill="#fff" fillOpacity="0.8" />
+                <rect x="320" y="79" width="6" height="6" fill="#fff" fillOpacity="0.8" />
+                <rect x="174" y="171" width="6" height="6" fill="#fff" fillOpacity="0.8" />
+                <rect x="320" y="171" width="6" height="6" fill="#fff" fillOpacity="0.8" />
+                <path d="M250 82v-14" stroke="#fff" strokeOpacity="0.4" strokeWidth="1.2" />
+                <circle cx="250" cy="64" r="4" fill="none" stroke="#fff" strokeOpacity="0.6" strokeWidth="1.2" />
+              </motion.g>
+
+              {/* retry, as a refresh badge clipped onto pay's corner */}
+              <motion.g variants={pop(1.6)}>
+                <circle cx="300" cy="158" r="19" fill="var(--color-night)" stroke="var(--color-coral)" strokeWidth="1.8" strokeDasharray="3 4" />
+                <g transform="translate(289,147) scale(0.62)" stroke="var(--color-coral)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none">
+                  <polyline points="23 4 23 10 17 10" />
+                  <polyline points="1 20 1 14 7 14" />
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                </g>
+              </motion.g>
+              <motion.text x="300" y="193" textAnchor="middle" fill="var(--color-coral)" fontSize="10" fontFamily="Inter, sans-serif" variants={pop(1.6)}>
+                auto-retries
               </motion.text>
-              <motion.text x="170" y="240" textAnchor="middle" fill="var(--color-coral)" fontSize="12" fontFamily="Inter, sans-serif" variants={pop(3)}>
-                retry
-              </motion.text>
+
+              {/* a sticky-note follow-up branching off pay */}
+              <motion.path d="M225 166C175 190 150 150 97 172" fill="none" stroke="var(--color-coral)" strokeOpacity="0.6" strokeWidth="1.8" strokeDasharray="4 5" strokeLinecap="round" variants={lineIn(1.4)} />
+              <motion.g variants={pop(1.3)}>
+                <rect x="50" y="172" width="95" height="68" rx="6" fill="none" stroke="var(--color-coral)" strokeWidth="1.8" strokeDasharray="4 3" transform="rotate(4 97 206)" />
+                <text x="97" y="200" textAnchor="middle" fill="var(--color-coral)" fontSize="9.5" fontFamily="Inter, sans-serif">send</text>
+                <text x="97" y="214" textAnchor="middle" fill="var(--color-coral)" fontSize="9.5" fontFamily="Inter, sans-serif">receipt</text>
+              </motion.g>
+
+              {/* Confirmed */}
+              <motion.path d="M315 128C335 145 340 160 345 192" fill="none" stroke="#fff" strokeOpacity="0.5" strokeWidth="2" strokeLinecap="round" variants={lineIn(1.9)} />
+              <motion.g variants={pop(2)}>
+                <rect x="347" y="162" width="105" height="60" rx="11" fill="none" stroke="#fff" strokeOpacity="0.22" strokeWidth="2" transform="rotate(-1.6 400 192)" />
+                <rect x="345" y="160" width="105" height="60" rx="10" fill="none" stroke="#fff" strokeOpacity="0.85" strokeWidth="2" transform="rotate(1.4 398 190)" />
+                <text x="398" y="195" textAnchor="middle" fill="rgba(255,255,255,0.85)" fontSize="10" fontFamily="Inter, sans-serif">Confirmed</text>
+              </motion.g>
+
+              {/* a floating count, as if the AI just finished the pass */}
+              <motion.g variants={pop(2.6)}>
+                <rect x="380" y="16" width="76" height="26" rx="13" fill="none" stroke="var(--color-accent)" strokeWidth="1.4" />
+                <text x="418" y="33" textAnchor="middle" fill="var(--color-accent)" fontSize="9.5" fontFamily="Inter, sans-serif">+5 shapes</text>
+              </motion.g>
             </motion.svg>
           </div>
         </div>

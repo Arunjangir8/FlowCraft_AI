@@ -13,6 +13,29 @@ const draw = (delay: number) => ({
   },
 });
 
+// For icons/labels that fade+lift in once their shape has finished drawing.
+const fadeUp = (delay: number) => ({
+  hidden: { opacity: 0, y: 6 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, ease: EASE, delay },
+  },
+});
+
+// Plain opacity fade, no pathLength. Framer Motion implements the `draw`
+// variant above by driving stroke-dasharray/-dashoffset itself, which
+// silently overrides any dasharray we set on the element — so anything
+// that needs to actually render dashed (the AI node's border) has to
+// fade in instead of "draw" in.
+const fadeIn = (delay: number) => ({
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { duration: 0.6, ease: EASE, delay },
+  },
+});
+
 function Cursor({
   name,
   color,
@@ -56,6 +79,13 @@ function Cursor({
 /**
  * Faux app window whose shapes draw themselves in — the product,
  * demonstrated instead of screenshotted.
+ *
+ * The canvas draws an actual small workflow (signup → plan check →
+ * welcome email / AI-suggested nurture branch → notify team) so the
+ * demo reads as a real automation, not a placeholder box-and-arrow
+ * diagram. The dashed, accent-colored node is the one the AI just
+ * added — the hand-drawn coral circle is the user calling it out,
+ * which is what the caption pill below is narrating.
  */
 export default function CanvasMock() {
   return (
@@ -90,44 +120,134 @@ export default function CanvasMock() {
           viewport={{ once: true, margin: "-100px" }}
           aria-hidden
         >
-          {/* flow boxes */}
+          {/* ---- trigger: "New signup" ---- */}
           <motion.rect
-            x="90" y="120" width="170" height="72" rx="14"
+            x="40" y="188" width="170" height="64" rx="32"
             fill="none" stroke="var(--color-ink)" strokeWidth="2.5"
             variants={draw(0.2)}
           />
-          <motion.rect
-            x="330" y="120" width="170" height="72" rx="36"
-            fill="none" stroke="var(--color-accent)" strokeWidth="2.5"
-            variants={draw(0.6)}
-          />
-          <motion.rect
-            x="570" y="120" width="150" height="72" rx="14"
-            fill="none" stroke="var(--color-ink)" strokeWidth="2.5"
-            variants={draw(1.0)}
-          />
-          {/* connectors */}
+          <motion.g variants={fadeUp(0.9)}>
+            <text x="40" y="178" fontSize="9" fontWeight="600" letterSpacing="1.5" fill="var(--color-ink-faint)">TRIGGER</text>
+            <path d="M64 204l-5 10h5l-3 8 9-12h-5l4-6z" fill="var(--color-accent)" />
+            <text x="84" y="225" fontSize="13" fontWeight="600" fill="var(--color-ink)">New signup</text>
+          </motion.g>
+
+          {/* connector: trigger -> condition */}
           <motion.path
-            d="M262 156h64m0 0l-12-9m12 9l-12 9"
+            d="M210 220h45m0 0l-11-8m11 8l-11 8"
             fill="none" stroke="var(--color-ink-soft)" strokeWidth="2.5" strokeLinecap="round"
             variants={draw(0.5)}
           />
+
+          {/* ---- condition: "Plan = Pro?" ---- */}
           <motion.path
-            d="M502 156h64m0 0l-12-9m12 9l-12 9"
+            d="M330 168l75 52-75 52-75-52z"
+            fill="none" stroke="var(--color-ink)" strokeWidth="2.5" strokeLinejoin="round"
+            variants={draw(0.7)}
+          />
+          <motion.g variants={fadeUp(1.3)}>
+            <text x="330" y="152" textAnchor="middle" fontSize="9" fontWeight="600" letterSpacing="1.5" fill="var(--color-ink-faint)">CONDITION</text>
+            <g transform="translate(322,196)" stroke="var(--color-ink-soft)" strokeWidth="1.6" strokeLinecap="round" fill="none">
+              <path d="M8 2v6M8 8l-6 5M8 8l6 5" />
+              <circle cx="8" cy="2" r="1.6" fill="var(--color-ink-soft)" stroke="none" />
+              <circle cx="2" cy="15" r="1.6" fill="var(--color-ink-soft)" stroke="none" />
+              <circle cx="14" cy="15" r="1.6" fill="var(--color-ink-soft)" stroke="none" />
+            </g>
+            <text x="330" y="238" textAnchor="middle" fontSize="13" fontWeight="600" fill="var(--color-ink)">Plan = Pro?</text>
+          </motion.g>
+
+          {/* connector: condition -> welcome email (yes) */}
+          <motion.path
+            d="M405 220C448 205 450 140 480 130"
             fill="none" stroke="var(--color-ink-soft)" strokeWidth="2.5" strokeLinecap="round"
-            variants={draw(0.9)}
+            variants={draw(1.0)}
           />
-          {/* freehand annotation */}
+          <motion.text x="432" y="178" fontSize="10" fill="var(--color-ink-faint)" variants={fadeUp(1.6)}>yes</motion.text>
+
+          {/* connector: condition -> trial nurture (no) */}
           <motion.path
-            d="M140 300c60-40 140 44 220 6s150-58 240-12c30 15 70 12 96-8"
-            fill="none" stroke="var(--color-coral)" strokeWidth="3" strokeLinecap="round"
-            variants={draw(1.3)}
+            d="M405 220C448 235 450 300 480 310"
+            fill="none" stroke="var(--color-ink-soft)" strokeWidth="2.5" strokeLinecap="round"
+            variants={draw(1.05)}
           />
-          <motion.circle
-            cx="415" cy="156" r="0" fill="var(--color-accent)" opacity="0.08"
+          <motion.text x="432" y="262" fontSize="10" fill="var(--color-ink-faint)" variants={fadeUp(1.6)}>no</motion.text>
+
+          {/* ---- action: "Send welcome email" ---- */}
+          <motion.rect
+            x="480" y="98" width="210" height="64" rx="14"
+            fill="none" stroke="var(--color-ink)" strokeWidth="2.5"
+            variants={draw(1.2)}
+          />
+          <motion.g variants={fadeUp(1.8)}>
+            <text x="480" y="88" fontSize="9" fontWeight="600" letterSpacing="1.5" fill="var(--color-ink-faint)">ACTION</text>
+            <g transform="translate(498,120)" stroke="var(--color-ink-soft)" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" fill="none">
+              <rect x="0" y="0" width="16" height="12" rx="2" />
+              <path d="M0 2l8 6 8-6" />
+            </g>
+            <text x="524" y="134" fontSize="13" fontWeight="600" fill="var(--color-ink)">Send welcome email</text>
+          </motion.g>
+
+          {/* ---- AI-suggested action: "Start trial nurture" ---- */}
+          <motion.rect
+            x="480" y="278" width="210" height="64" rx="14"
+            fill="none" stroke="var(--color-accent)" strokeWidth="2.5" strokeDasharray="6 5"
+            variants={fadeIn(1.3)}
+          />
+          <motion.g variants={fadeUp(1.9)}>
+            <text x="480" y="268" fontSize="9" fontWeight="600" letterSpacing="1.5" fill="var(--color-accent)">AI SUGGESTED</text>
+            <g transform="translate(498,300)" fill="var(--color-accent)">
+              <path d="M8 0l1.6 5.4L15 7l-5.4 1.6L8 14l-1.6-5.4L1 7l5.4-1.6z" />
+            </g>
+            <text x="524" y="314" fontSize="13" fontWeight="600" fill="var(--color-ink)">Start trial nurture</text>
+          </motion.g>
+
+          {/* hand-drawn callout around the AI node — a slightly imperfect
+              ellipse (not a true bezier circle) so it reads as sketched,
+              sized to sit just outside the 480,278 210x64 rect */}
+          <motion.path
+            d="M708 310
+               C706 335 654 351 583 350
+               C516 349 462 333 461 311
+               C460 285 517 264 586 265
+               C651 266 710 284 708 310 Z"
+            fill="none" stroke="var(--color-coral)" strokeWidth="2.5" strokeLinecap="round"
+            variants={draw(2.1)}
+          />
+
+          {/* connectors: both actions merge into "Notify team" */}
+          <motion.path
+            d="M690 130C725 130 720 190 694 205"
+            fill="none" stroke="var(--color-ink-soft)" strokeWidth="2.5" strokeLinecap="round"
+            variants={draw(1.6)}
+          />
+          <motion.path
+            d="M690 310C725 310 720 250 694 235"
+            fill="none" stroke="var(--color-ink-soft)" strokeWidth="2.5" strokeLinecap="round"
+            variants={draw(1.65)}
+          />
+
+          {/* ---- merge: "Notify team" ---- */}
+          <motion.rect
+            x="690" y="188" width="100" height="64" rx="32"
+            fill="none" stroke="var(--color-ink)" strokeWidth="2.5"
+            variants={draw(1.85)}
+          />
+          <motion.g variants={fadeUp(2.35)}>
+            <g transform="translate(706,212)" stroke="var(--color-ink-soft)" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" fill="none">
+              <path d="M8 0c-3 0-5 2.4-5 5.4v2.6l-1.5 2.4h13L13 8V5.4C13 2.4 11 0 8 0z" />
+              <path d="M6.5 12.4a1.6 1.6 0 003 0" />
+            </g>
+            <text x="726" y="225" fontSize="11" fontWeight="600" fill="var(--color-ink)">Notify</text>
+            <text x="726" y="238" fontSize="11" fontWeight="600" fill="var(--color-ink)">team</text>
+          </motion.g>
+
+          {/* soft highlight pulse behind the AI node, kept tight so it
+              doesn't bleed into the diamond or the Notify node */}
+          <motion.ellipse
+            cx="585" cy="310" rx="0" ry="0" fill="var(--color-accent)" opacity="0.07"
             variants={{
-              hidden: { r: 0 },
-              visible: { r: 110, transition: { duration: 1.2, ease: EASE, delay: 1.6 } },
+              hidden: { rx: 0, ry: 0 },
+              visible: { rx: 145, ry: 70, transition: { duration: 1.2, ease: EASE, delay: 2.2 } },
             }}
           />
         </motion.svg>
@@ -150,12 +270,12 @@ export default function CanvasMock() {
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.8, ease: EASE, delay: 2 }}
+          transition={{ duration: 0.8, ease: EASE, delay: 2.3 }}
           className="absolute bottom-4 left-1/2 flex w-[min(420px,88%)] -translate-x-1/2 items-center gap-2 rounded-full border border-line bg-white/90 px-4 py-2.5 shadow-lg backdrop-blur"
         >
           <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-accent" />
           <span className="truncate text-xs text-ink-soft sm:text-sm">
-            “Turn this into an onboarding flowchart” — drawing 3 shapes…
+            "If it's a free signup, start a trial nurture" — added
           </span>
         </motion.div>
       </div>
