@@ -1,5 +1,22 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-serif: "Instrument Serif", ui-serif, Georgia, serif;
+
+  --color-paper: #f5f4ef;
+  --color-paper-deep: #edebe3;
+  --color-ink: #1a1917;
+  --color-ink-soft: #55534c;
+  --color-ink-faint: #8a877d;
+  --color-line: #dedcd2;
+  --color-accent: #3b36ee;
+  --color-accent-deep: #2823c9;
+  --color-coral: #ff5c39;
+  --color-night: #141310;
+  --color-night-soft: #23211d;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -9,4 +26,72 @@ body,
 #root {
   margin: 0;
   height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--color-accent);
+  color: var(--color-paper);
+}
+
+/* React Bits SpotlightCard, adapted: accent glow tracks the pointer */
+.spotlight-card {
+  --spot-x: 50%;
+  --spot-y: 50%;
+}
+
+.spotlight-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle 220px at var(--spot-x) var(--spot-y),
+    color-mix(in srgb, var(--color-accent) 9%, transparent),
+    transparent 80%
+  );
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  pointer-events: none;
+}
+
+.spotlight-card:hover::before,
+.spotlight-card:focus-within::before {
+  opacity: 1;
+}
+
+/* React Bits ShinyText, adapted: soft sheen sweeping across text */
+.shiny-text {
+  background: linear-gradient(
+    120deg,
+    var(--color-ink-soft) 40%,
+    var(--color-accent) 50%,
+    var(--color-ink-soft) 60%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shiny-sweep 4.5s linear infinite;
+}
+
+@keyframes shiny-sweep {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shiny-text {
+    animation: none;
+    background: none;
+    color: var(--color-ink-soft);
+  }
 }
