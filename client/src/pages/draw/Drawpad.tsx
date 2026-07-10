@@ -1,6 +1,6 @@
 import {
     useState, useRef, useEffect, useCallback,
-    type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode
+    type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode
 } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -19,7 +19,9 @@ export const getInkColor = (bg: string) => (bg === BG_WHITE ? "#0b0b0d" : "#f5f5
 export const getMutedInk = (bg: string) => (bg === BG_WHITE ? "rgba(0,0,0,0.55)" : "rgba(255,255,255,0.6)");
 
 const STROKE_WIDTHS = [1, 2, 4, 8];
-let _uid = 0;
+// Seed with timestamp so new ids never collide with ids already persisted
+// (server/AI shapes use small sequential ids starting at 1).
+let _uid = Date.now();
 export const uid = () => ++_uid;
 
 
@@ -95,7 +97,9 @@ export function getBounds(shape: DrawShape): Bounds {
     }
     if (shape.type === "text") {
         const fs = shape.fontSize || 18;
-        return { x: shape.x ?? 0, y: (shape.y ?? 0) - fs, w: Math.max((shape.text?.length || 1) * fs * 0.6, 20), h: fs + 6 };
+        const lines = (shape.text ?? "").split("\n");
+        const longest = lines.reduce((m, l) => Math.max(m, l.length), 1);
+        return { x: shape.x ?? 0, y: (shape.y ?? 0) - fs, w: Math.max(longest * fs * 0.6, 20), h: Math.max(lines.length, 1) * fs * 1.3 + 6 };
     }
     const x1 = shape.x1 ?? 0, y1 = shape.y1 ?? 0, x2 = shape.x2 ?? 0, y2 = shape.y2 ?? 0;
     return { x: Math.min(x1, x2), y: Math.min(y1, y2), w: Math.max(Math.abs(x2 - x1), 4), h: Math.max(Math.abs(y2 - y1), 4) };
@@ -110,15 +114,17 @@ export function rotPt(px: number, py: number, cx: number, cy: number, angle: num
     return { x: cx + cos * (px - cx) - sin * (py - cy), y: cy + sin * (px - cx) + cos * (py - cy) };
 }
 
-function getRotHandlePos(shape: DrawShape): Point {
+// Must match the position drawn in drawSelectionOverlay (b.y - 30 / zoom).
+function getRotHandlePos(shape: DrawShape, zoom: number): Point {
     const b = getBounds(shape), c = getCenter(shape);
-    return rotPt(c.x, b.y - 34, c.x, c.y, shape.rotation || 0);
+    return rotPt(c.x, b.y - 30 / zoom, c.x, c.y, shape.rotation || 0);
 }
 
 function getResizeHandleHit(shape: DrawShape, px: number, py: number, zoom: number): ResizeHandle | null {
     const b = getBounds(shape), c = getCenter(shape), rot = shape.rotation || 0;
     const lp = rotPt(px, py, c.x, c.y, -rot);
-    const pad = 12, hw = 14 / zoom;
+    // pad must match the pad used when drawing the handles in drawSelectionOverlay
+    const pad = 8, hw = 14 / zoom;
     const corners: [ResizeHandle, number, number][] = [
         ["tl", b.x - pad, b.y - pad],
         ["tr", b.x + b.w + pad, b.y - pad],
@@ -278,6 +284,14 @@ export function resolveArrowEndpoints(arrow: DrawShape, all: DrawShape[]): { sta
         if (s) end = getShapeAnchorPoints(s)[arrow.endBinding.anchor];
     }
     return { start, end };
+}
+
+// Copy of the shape with bound arrow endpoints baked into x1/y1/x2/y2
+// (stored coords can be stale — bindings resolve at draw time).
+export function resolveArrowShape(s: DrawShape, all: DrawShape[]): DrawShape {
+    if (s.type !== "arrow") return s;
+    const { start, end } = resolveArrowEndpoints(s, all);
+    return { ...s, x1: start.x, y1: start.y, x2: end.x, y2: end.y };
 }
 
 
@@ -763,12 +777,13 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
         const { shapes, zoom, pan, selectedId, selectedIds, editingTextId, editingLabelId } = stateRef.current;
         const bg = bgColorRef.current;
         const inkNow = getInkColor(bg);
+        const dpr = window.devicePixelRatio || 1;
 
-        drawDotGrid(ctx, canvas.width, canvas.height, pan, bg);
+        drawDotGrid(ctx, canvas.width / dpr, canvas.height / dpr, pan, bg);
 
         const off = document.createElement("canvas"); off.width = canvas.width; off.height = canvas.height;
         const octx = off.getContext("2d")!;
-        octx.save(); octx.translate(pan.x, pan.y); octx.scale(zoom, zoom);
+        octx.save(); octx.setTransform(dpr, 0, 0, dpr, 0, 0); octx.translate(pan.x, pan.y); octx.scale(zoom, zoom);
 
         
         const resolved = shapes.map(s => {
@@ -807,7 +822,8 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
 
         if (previewShape) drawShape(octx, { ...previewShape, color: previewShape.color ?? inkNow }, inkNow);
         octx.restore();
-        ctx.drawImage(off, 0, 0);
+        // Offscreen buffer is already at device-pixel scale; blit 1:1 so it stays crisp.
+        ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(off, 0, 0); ctx.restore();
 
         
         ctx.save(); ctx.translate(pan.x, pan.y); ctx.scale(zoom, zoom);
@@ -893,9 +909,13 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
         if (ti && val) {
             pushHistory(stateRef.current.shapes);
             setShapes(s => {
-                const base = editingTextId ? s.filter(sh => sh.id !== editingTextId) : s;
-                const fs = editingTextId ? (s.find(sh => sh.id === editingTextId)?.fontSize ?? 18) : (fontSize === "custom" ? customFontSize : fontSize);
-                return [...base, { id: uid(), type: "text" as ShapeType, x: ti.x, y: ti.y, text: val, color: ink, fontSize: fs, opacity }];
+                const orig = editingTextId ? s.find(sh => sh.id === editingTextId) : undefined;
+                if (orig) {
+                    // Edit in place: keep id (and any other props) stable
+                    return s.map(sh => sh.id === editingTextId ? { ...sh, text: val } : sh);
+                }
+                const fs = fontSize === "custom" ? customFontSize : fontSize;
+                return [...s, { id: uid(), type: "text" as ShapeType, x: ti.x, y: ti.y, text: val, color: ink, fontSize: fs, opacity }];
             });
         } else if (editingTextId && !val) {
             pushHistory(stateRef.current.shapes); setShapes(s => s.filter(sh => sh.id !== editingTextId));
@@ -931,6 +951,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
     const updateSelectedSW = useCallback((w: number) => { if (!stateRef.current.selectedId) return; pushHistory(stateRef.current.shapes); setShapes(s => s.map(sh => sh.id === stateRef.current.selectedId ? { ...sh, strokeWidth: w } : sh)); }, [pushHistory, setShapes]);
     const updateSelectedRounded = useCallback((r: boolean) => { if (!stateRef.current.selectedId) return; pushHistory(stateRef.current.shapes); setShapes(s => s.map(sh => sh.id === stateRef.current.selectedId ? { ...sh, rounded: r } : sh)); }, [pushHistory, setShapes]);
     const updateSelectedRoundedRadius = useCallback((r: number) => { if (!stateRef.current.selectedId) return; pushHistory(stateRef.current.shapes); setShapes(s => s.map(sh => sh.id === stateRef.current.selectedId ? { ...sh, roundedRadius: r } : sh)); }, [pushHistory, setShapes]);
+    const updateSelectedOpacity = useCallback((o: number) => { if (!stateRef.current.selectedId) return; pushHistory(stateRef.current.shapes); setShapes(s => s.map(sh => sh.id === stateRef.current.selectedId ? { ...sh, opacity: o } : sh)); }, [pushHistory, setShapes]);
     const updateSelectedFontSize = useCallback((s: number) => { if (!stateRef.current.selectedId) return; pushHistory(stateRef.current.shapes); setShapes(prev => prev.map(sh => { if (sh.id !== stateRef.current.selectedId) return sh; if (sh.type === "text") return { ...sh, fontSize: s }; if (isLabelEditableShape(sh)) return { ...sh, labelFontSize: s }; return sh; })); }, [pushHistory, setShapes]);
 
     
@@ -941,44 +962,70 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
             if (textActiveRef.current) return;
             const tag = (e.target as HTMLElement)?.tagName; if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
             const cmd = e.metaKey || e.ctrlKey;
-            if (cmd && e.key === "z" && !e.shiftKey) { e.preventDefault(); undo(); return; }
-            if (cmd && e.shiftKey && e.key === "z") { e.preventDefault(); redo(); return; }
-            if (cmd && e.key === "y") { e.preventDefault(); redo(); return; }
+            const key = e.key.toLowerCase();
+            if (cmd && key === "z" && !e.shiftKey) { e.preventDefault(); undo(); return; }
+            if (cmd && ((key === "z" && e.shiftKey) || key === "y")) { e.preventDefault(); redo(); return; }
+            if (e.key === "Escape") {
+                setSelectedId(null); setSelectedIds(new Set());
+                setPreview(null); setIsDrawing(false); setCurrentPath([]);
+                return;
+            }
             if ((e.key === "Backspace" || e.key === "Delete") && (stateRef.current.selectedId || stateRef.current.selectedIds.size > 0)) {
                 e.preventDefault();
                 const ids = stateRef.current.selectedIds.size > 0 ? stateRef.current.selectedIds : new Set<number | string>([stateRef.current.selectedId!]);
                 pushHistory(stateRef.current.shapes);
                 setShapes(s => s.filter(sh => !ids.has(sh.id)).map(sh => {
                     if (sh.type !== "arrow") return sh;
-                    const next = { ...sh };
-                    if (next.startBinding && ids.has(next.startBinding.shapeId)) next.startBinding = undefined;
-                    if (next.endBinding && ids.has(next.endBinding.shapeId)) next.endBinding = undefined;
+                    let next = sh;
+                    // Unbind from deleted shapes, freezing the endpoint where it currently sits
+                    // (stored x/y can be stale because bound endpoints resolve at draw time).
+                    if (next.startBinding && ids.has(next.startBinding.shapeId)) {
+                        const p = resolveArrowEndpoints(next, s).start;
+                        next = { ...next, startBinding: undefined, x1: p.x, y1: p.y };
+                    }
+                    if (next.endBinding && ids.has(next.endBinding.shapeId)) {
+                        const p = resolveArrowEndpoints(next, s).end;
+                        next = { ...next, endBinding: undefined, x2: p.x, y2: p.y };
+                    }
                     return next;
                 }));
                 setSelectedId(null); setSelectedIds(new Set()); return;
             }
             if (!cmd) {
                 const map: Record<string, Tool> = { v: TOOLS.SELECT, h: TOOLS.PAN, p: TOOLS.PEN, e: TOOLS.ERASER, l: TOOLS.LINE, a: TOOLS.ARROW, r: TOOLS.RECT, o: TOOLS.ELLIPSE, d: TOOLS.DIAMOND, t: TOOLS.TEXT };
-                if (map[e.key]) { e.preventDefault(); setTool(map[e.key]); }
+                if (map[key]) { e.preventDefault(); setTool(map[key]); }
             }
         };
         window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey);
     }, [undo, redo, pushHistory, setShapes]);
+
+    // Zoom keeping the given screen point (canvas-relative CSS px) fixed.
+    const zoomAt = useCallback((factor: number, cx?: number, cy?: number) => {
+        const c = canvasRef.current; if (!c) return;
+        const r = c.getBoundingClientRect();
+        const mx = cx ?? r.width / 2, my = cy ?? r.height / 2;
+        const { zoom, pan } = stateRef.current;
+        const nz = Math.max(0.1, Math.min(20, zoom * factor));
+        if (nz === zoom) return;
+        setZoom(nz);
+        setPan({ x: mx - ((mx - pan.x) / zoom) * nz, y: my - ((my - pan.y) / zoom) * nz });
+    }, [setZoom, setPan]);
 
     useEffect(() => {
         const el = canvasRef.current; if (!el) return;
         const onWheel = (e: WheelEvent) => {
             e.preventDefault();
             if (e.ctrlKey) {
-                // pinch-to-zoom (trackpad pinch or Ctrl+scroll)
-                setZoom(z => Math.max(0.1, Math.min(20, z * Math.exp(-e.deltaY * 0.0015))));
+                // pinch-to-zoom (trackpad pinch or Ctrl+scroll) — anchor at cursor
+                const r = el.getBoundingClientRect();
+                zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX - r.left, e.clientY - r.top);
             } else {
                 // two-finger scroll → pan
                 setPan(p => ({ x: p.x - e.deltaX, y: p.y - e.deltaY }));
             }
         };
         el.addEventListener("wheel", onWheel, { passive: false }); return () => el.removeEventListener("wheel", onWheel);
-    }, [setZoom, setPan]);
+    }, [zoomAt, setPan]);
 
     
     
@@ -993,8 +1040,13 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
             openLabelEdit(hit); setTool(TOOLS.SELECT); return;
         }
         if (e.shiftKey) {
+            const curSel = stateRef.current.selectedId;
             setSelectedId(null);
-            setSelectedIds(prev => { const next = new Set(prev); next.has(hit.id) ? next.delete(hit.id) : next.add(hit.id); return next; });
+            setSelectedIds(prev => {
+                const next = new Set(prev.size ? prev : (curSel != null ? [curSel] : []));
+                next.has(hit.id) ? next.delete(hit.id) : next.add(hit.id);
+                return next;
+            });
         } else { setSelectedId(hit.id); setSelectedIds(new Set()); }
         setTool(TOOLS.SELECT);
     }, [toCanvas, openTextEdit, openLabelEdit]);
@@ -1019,7 +1071,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                         const rh = getResizeHandleHit(sel, pos.x, pos.y, zoom);
                         if (rh === "tl" || rh === "br") return "nwse-resize";
                         if (rh === "tr" || rh === "bl") return "nesw-resize";
-                        const hp = getRotHandlePos(sel);
+                        const hp = getRotHandlePos(sel, zoom);
                         if (Math.hypot(pos.x - hp.x, pos.y - hp.y) < 18 / zoom) return "crosshair";
                     }
                 }
@@ -1032,8 +1084,10 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
     
     
     
-    const onMouseDown = useCallback((e: ReactMouseEvent) => {
+    const onMouseDown = useCallback((e: ReactPointerEvent) => {
         if (textActiveRef.current) return;
+        if (!e.isPrimary) return; // ignore extra touch points
+        try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* older browsers */ }
         setJustDrawnId(null); setShowDlMenu(false);
         if (e.button === 1 || (e.button === 0 && e.altKey) || tool === TOOLS.PAN) {
             setIsPanning(true); setPanStart({ x: e.clientX - stateRef.current.pan.x, y: e.clientY - stateRef.current.pan.y }); return;
@@ -1058,7 +1112,12 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                 const hit = [...shapes].reverse().find(s => hitTest(s, pos.x, pos.y, shapes));
                 if (hit) {
                     setSelectedId(null);
-                    setSelectedIds(prev => { const next = new Set(prev); next.has(hit.id) ? next.delete(hit.id) : next.add(hit.id); return next; });
+                    setSelectedIds(prev => {
+                        // Carry an existing single selection into the multi-selection
+                        const next = new Set(prev.size ? prev : (selectedId != null ? [selectedId] : []));
+                        next.has(hit.id) ? next.delete(hit.id) : next.add(hit.id);
+                        return next;
+                    });
                 }
                 return;
             }
@@ -1085,7 +1144,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                         setResizeHandle(rh); setSelMode("resize"); setSelStartPos(pos); setSelOrigShape({ ...sel });
                         return;
                     }
-                    const hp = getRotHandlePos(sel);
+                    const hp = getRotHandlePos(sel, zoom);
                     if (Math.hypot(pos.x - hp.x, pos.y - hp.y) < 18 / zoom) {
                         preDragRef.current = [...shapes];
                         if (sel.type !== "eraser") {
@@ -1104,7 +1163,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
             if (clickedSel && activeIds.size > 0) {
                 preDragRef.current = [...shapes]; attachedErasersRef.current = [];
                 const om = new Map<number | string, DrawShape>();
-                activeIds.forEach(id => { const s = shapes.find(sh => sh.id === id); if (s) om.set(id, { ...s }); });
+                activeIds.forEach(id => { const s = shapes.find(sh => sh.id === id); if (s) om.set(id, resolveArrowShape(s, shapes)); });
                 origShapesRef.current = om;
                 setSelMode("move"); setSelStartPos(pos); setSelOrigShape({ ...clickedSel });
                 return;
@@ -1120,7 +1179,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                         .filter((s, idx) => s.type === "eraser" && idx > hi && boundsIntersect(getBounds(s), getBounds(hit)))
                         .map(s => ({ ...s }));
                 } else attachedErasersRef.current = [];
-                setSelMode("move"); setSelStartPos(pos); setSelOrigShape({ ...hit });
+                setSelMode("move"); setSelStartPos(pos); setSelOrigShape(resolveArrowShape(hit, shapes));
             } else {
                 setSelectedId(null); setSelectedIds(new Set()); setSelMode(null);
                 marqueeStartRef.current = pos; setMarquee({ x1: pos.x, y1: pos.y, x2: pos.x, y2: pos.y });
@@ -1136,7 +1195,8 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
     
     
     
-    const onMouseMove = useCallback((e: ReactMouseEvent) => {
+    const onMouseMove = useCallback((e: ReactPointerEvent) => {
+        if (!e.isPrimary) return;
         if (isPanning) { setPan({ x: e.clientX - panStart.x, y: e.clientY - panStart.y }); return; }
         const pos = toCanvas(e);
         setCanvasCursor(getCanvasCursor(pos));
@@ -1147,7 +1207,8 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                 setMarquee(mq);
                 const mx = Math.min(mq.x1, mq.x2), my = Math.min(mq.y1, mq.y2);
                 const mw = Math.abs(mq.x2 - mq.x1), mh = Math.abs(mq.y2 - mq.y1);
-                setSelectedIds(new Set(stateRef.current.shapes.filter(s => boundsIntersect(getBounds(s), { x: mx, y: my, w: mw, h: mh })).map(s => s.id)));
+                const all = stateRef.current.shapes;
+                setSelectedIds(new Set(all.filter(s => boundsIntersect(getBounds(resolveArrowShape(s, all)), { x: mx, y: my, w: mw, h: mh })).map(s => s.id)));
                 setPreview({ id: "_mq", type: "rect", x1: mq.x1, y1: mq.y1, x2: mq.x2, y2: mq.y2, color: "transparent", strokeWidth: 0, _marquee: mq } as DrawShape & { _marquee: typeof mq });
                 return;
             }
@@ -1160,7 +1221,14 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                     setShapes(s => s.map(sh => {
                         if (aIds.has(sh.id)) {
                             const orig = origShapesRef.current.get(sh.id) ?? (sh.id === selOrigShape.id ? selOrigShape : sh);
-                            return moveShape(orig, dx, dy);
+                            let moved = moveShape(orig, dx, dy);
+                            if (moved.type === "arrow") {
+                                // Detach bindings whose target isn't moving along, otherwise the
+                                // endpoint stays pinned to the target and the arrow can't move.
+                                if (moved.startBinding && !aIds.has(moved.startBinding.shapeId)) moved = { ...moved, startBinding: undefined };
+                                if (moved.endBinding && !aIds.has(moved.endBinding.shapeId)) moved = { ...moved, endBinding: undefined };
+                            }
+                            return moved;
                         }
                         const origE = attachedErasersRef.current.find(er => er.id === sh.id);
                         if (origE) return moveShape(origE, dx, dy);
@@ -1179,7 +1247,16 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                     const c = getCenter(selOrigShape);
                     const rot = selOrigShape.rotation || 0;
                     const localPos = rotPt(pos.x, pos.y, c.x, c.y, -rot);
-                    const resized = resizeShape(selOrigShape, resizeHandle, localPos);
+                    let resized = resizeShape(selOrigShape, resizeHandle, localPos);
+                    if (rot) {
+                        // Rotation is applied around the bounds center at draw time, and
+                        // resizing moves that center — translate so the new center lands
+                        // where it would be if rotated about the original center, which
+                        // keeps the opposite (anchor) corner fixed on screen.
+                        const nc = getCenter(resized);
+                        const wc = rotPt(nc.x, nc.y, c.x, c.y, rot);
+                        resized = moveShape(resized, wc.x - nc.x, wc.y - nc.y);
+                    }
                     setShapes(s => s.map(sh => sh.id === selOrigShape.id ? resized : sh));
                 } else if (selMode === "arrow-endpoint" && arrowEndpointDragRef.current && selOrigShape) {
                     const { handle } = arrowEndpointDragRef.current;
@@ -1233,7 +1310,8 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
     
     
     
-    const onMouseUp = useCallback((e: ReactMouseEvent) => {
+    const onMouseUp = useCallback((e: ReactPointerEvent) => {
+        if (!e.isPrimary) return;
         if (isPanning) { setIsPanning(false); return; }
         if (tool === TOOLS.SELECT) {
             if (marqueeStartRef.current) { marqueeStartRef.current = null; setMarquee(null); setPreview(null); return; }
@@ -1252,15 +1330,16 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
         if (!isDrawing) return;
         setIsDrawing(false); setPreview(null);
         const pos = toCanvas(e);
-        pushHistory(stateRef.current.shapes);
 
         if (tool === TOOLS.PEN || tool === TOOLS.ERASER) {
             if (currentPath.length < 2) { setCurrentPath([]); return; }
+            pushHistory(stateRef.current.shapes);
             const nid = uid();
             setShapes(s => [...s, { id: nid, type: tool, points: currentPath, color: ink, strokeWidth, opacity }]);
             setJustDrawnId(nid); setCurrentPath([]); return;
         }
         if (Math.hypot(pos.x - startPos.x, pos.y - startPos.y) < 4) return;
+        pushHistory(stateRef.current.shapes);
 
         const baseId = uid();
         const base = { id: baseId, color: ink, strokeWidth, fill: fillColor, opacity, rounded, roundedRadius, x1: startPos.x, y1: startPos.y, x2: pos.x, y2: pos.y };
@@ -1297,11 +1376,16 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
     const exportPNG = () => { const out = buildExportCanvas(); if (!out) return; const a = document.createElement("a"); a.download = "drawing.png"; a.href = out.toDataURL(); a.click(); };
     const exportPDF = () => {
         const out = buildExportCanvas(); if (!out) return;
-        const win = window.open("", "_blank"); if (!win) { alert("Allow popups."); return; }
-        win.document.write(`<style>@page{margin:0;size:${out.width}px ${out.height}px;}*{margin:0;padding:0;}body{background:${safeBg};}img{display:block;max-width:100%;}</style><img src="${out.toDataURL()}"/>`);
-        win.document.close();
+        const html = `<!doctype html><style>@page{margin:0;size:${out.width}px ${out.height}px;}*{margin:0;padding:0;}body{background:${safeBg};}img{display:block;max-width:100%;}</style><img src="${out.toDataURL()}"/>`;
+        const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+        const win = window.open(url, "_blank");
+        if (!win) { alert("Allow popups."); URL.revokeObjectURL(url); }
     };
-    const clearAll = useCallback(() => { pushHistory(stateRef.current.shapes); setShapes([]); setSelectedId(null); }, [pushHistory, setShapes]);
+    const clearAll = useCallback(() => {
+        if (!stateRef.current.shapes.length) return;
+        pushHistory(stateRef.current.shapes);
+        setShapes([]); setSelectedId(null); setSelectedIds(new Set()); setJustDrawnId(null);
+    }, [pushHistory, setShapes]);
 
     
     
@@ -1374,11 +1458,11 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
             {/* canvas */}
             <canvas
                 ref={canvasRef}
-                style={{ display: "block", width: "100%", height: "100%", cursor: readOnly ? "grab" : canvasCursor, touchAction: readOnly ? "none" : "auto" }}
-                onMouseDown={readOnly ? undefined : onMouseDown}
-                onMouseMove={readOnly ? undefined : onMouseMove}
-                onMouseUp={readOnly ? undefined : onMouseUp}
-                onMouseLeave={readOnly ? undefined : onMouseUp}
+                style={{ display: "block", width: "100%", height: "100%", cursor: readOnly ? "grab" : canvasCursor, touchAction: "none" }}
+                onPointerDown={readOnly ? undefined : onMouseDown}
+                onPointerMove={readOnly ? undefined : onMouseMove}
+                onPointerUp={readOnly ? undefined : onMouseUp}
+                onPointerLeave={readOnly ? undefined : onMouseUp}
                 onDoubleClick={readOnly ? undefined : onDoubleClick}
                 onTouchStart={readOnly ? onMobileTouchStart : undefined}
                 onTouchMove={readOnly ? onMobileTouchMove : undefined}
@@ -1428,14 +1512,14 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                     {safeBg === BG_WHITE ? Ic.moon : Ic.sun}
                 </FloatingBtn>
                 <Divider bg={safeBg} vertical />
-                <FloatingBtn label="Zoom out" bg={safeBg} onClick={() => setZoom(z => Math.max(0.1, z / 1.25))}>
+                <FloatingBtn label="Zoom out" bg={safeBg} onClick={() => zoomAt(1 / 1.25)}>
                     <span style={{ fontSize: 16, lineHeight: 1 }}>−</span>
                 </FloatingBtn>
                 <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} style={{
                     background: "transparent", border: "none", color: ink, fontSize: 11, cursor: "pointer",
                     padding: "0 6px", minWidth: 44, fontFamily: "inherit", opacity: 0.7,
                 }}>{Math.round(zoom * 100)}%</button>
-                <FloatingBtn label="Zoom in" bg={safeBg} onClick={() => setZoom(z => Math.min(20, z * 1.25))}>
+                <FloatingBtn label="Zoom in" bg={safeBg} onClick={() => zoomAt(1.25)}>
                     <span style={{ fontSize: 16, lineHeight: 1 }}>+</span>
                 </FloatingBtn>
                 <Divider bg={safeBg} vertical />
@@ -1601,8 +1685,13 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                     <Divider bg={safeBg} vertical />
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         <span style={{ color: muted, fontSize: 10 }}>Opacity</span>
-                        <input type="range" min={0.1} max={1} step={0.05} value={opacity}
-                            onChange={e => setOpacity(parseFloat(e.target.value))} style={{ width: 70 }} />
+                        <input type="range" min={0.1} max={1} step={0.05}
+                            value={selShape?.opacity ?? jdShape?.opacity ?? opacity}
+                            onChange={e => {
+                                const v = parseFloat(e.target.value);
+                                if (selShape) updateSelectedOpacity(v);
+                                else { setOpacity(v); if (jdShape) setShapes(s => s.map(sh => sh.id === jdShape.id ? { ...sh, opacity: v } : sh)); }
+                            }} style={{ width: 70 }} />
                     </div>
                 </div>
             )}

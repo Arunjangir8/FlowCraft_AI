@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { http } from "../../services/http";
 import { env } from "../../config/env";
@@ -23,7 +23,10 @@ export default function DrawingPadPage() {
     const creatingFileRef = useRef(false);
 
     const _localKey = fileId ? `drawpad_file_${fileId}` : "drawpad_temp";
-    const _saved = (() => { try { return JSON.parse(localStorage.getItem(_localKey) ?? "{}"); } catch { return {}; } })();
+    // Memoized: parsing the whole drawing from localStorage on every render is expensive
+    const _saved = useMemo(() => {
+        try { return JSON.parse(localStorage.getItem(_localKey) ?? "{}"); } catch { return {}; }
+    }, [_localKey]);
     const _hasLocal = !!_saved.shapes?.length;
 
     const [shapes,        setShapes]        = useState<DrawShape[]>(_saved.shapes  ?? []);
@@ -33,7 +36,6 @@ export default function DrawingPadPage() {
     const [savedToast,    setSavedToast]    = useState(false);
     const [hasLocalCache, setHasLocalCache] = useState(!!_saved.shapes);
 
-    const canvasRef  = useRef<HTMLCanvasElement | null>(null);
     const shapesRef  = useRef(shapes);
     const bgColorRef = useRef(bgColor);
     const zoomRef    = useRef(zoom);
@@ -112,19 +114,31 @@ export default function DrawingPadPage() {
 
     const onSave = async () => {
         if (!fileId) return;
-        await http.private.post("/drawing/save", {
-            fileId, shapes, bgColor, zoom, panX: pan.x, panY: pan.y,
-            canvasWidth:  canvasRef.current?.width,
-            canvasHeight: canvasRef.current?.height,
-        });
-        persistLocal({ shapes, bgColor, zoom, pan });
-        setSavedToast(true);
-        setTimeout(() => setSavedToast(false), 2000);
+        try {
+            await http.private.post("/drawing/save", {
+                fileId, shapes, bgColor, zoom, panX: pan.x, panY: pan.y,
+                // Canvas fills the viewport
+                canvasWidth:  window.innerWidth,
+                canvasHeight: window.innerHeight,
+            });
+            persistLocal({ shapes, bgColor, zoom, pan });
+            setSavedToast(true);
+            setTimeout(() => setSavedToast(false), 2000);
+        } catch (err) {
+            console.error("Save failed", err);
+            alert(err instanceof Error ? err.message : "Save failed");
+        }
     };
 
     const onSync = async () => {
         if (!fileId) return;
-        const res = await http.private.get<{ success: boolean; data: any }>(`/drawing/file/${fileId}`);
+        let res;
+        try {
+            res = await http.private.get<{ success: boolean; data: any }>(`/drawing/file/${fileId}`);
+        } catch (err) {
+            console.error("Sync failed", err);
+            return;
+        }
         const drawing = res.data?.data ?? res.data;
         if (!drawing) return;
         const newShapes = drawing.shapesJson || [];
