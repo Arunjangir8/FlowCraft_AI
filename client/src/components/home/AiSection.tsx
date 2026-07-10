@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import SpotlightCard from "./bits/SpotlightCard";
 import { EASE, Reveal } from "./motion";
 
 const PROMPT = "sketch a checkout flow with a retry path";
@@ -25,7 +26,7 @@ function TypedPrompt() {
       </span>
       <motion.span
         aria-hidden
-        className="ml-0.5 inline-block h-4 w-[2px] translate-y-[2px] bg-accent"
+        className="ml-0.5 inline-block h-4 w-0.5 translate-y-0.5 bg-accent"
         animate={{ opacity: [1, 0, 1] }}
         transition={{ duration: 1, repeat: Infinity }}
       />
@@ -42,10 +43,33 @@ const pop = (i: number) => ({
   },
 });
 
+const capabilities = [
+  {
+    name: "Generate",
+    body: "“A login flow with three steps” becomes three connected shapes, placed where you left off.",
+  },
+  {
+    name: "Diagram",
+    body: "Paste or describe a process; get a full Mermaid flowchart rendered as editable canvas shapes.",
+  },
+  {
+    name: "Transform",
+    body: "Ask it to tidy, align, restyle or rearrange what you already drew — your shapes, reworked.",
+  },
+  {
+    name: "Describe",
+    body: "It reads the board back to you — useful when a sketch needs to become a paragraph.",
+  },
+  {
+    name: "Suggest",
+    body: "Stuck at a blank canvas? Ask for directions worth sketching and pick one.",
+  },
+];
+
 export default function AiSection() {
   return (
     <section id="ai" className="relative px-5 py-8 sm:px-8">
-      <div className="mx-auto max-w-6xl overflow-hidden rounded-[2rem] bg-night px-6 py-20 sm:px-14 sm:py-28">
+      <div className="mx-auto max-w-6xl overflow-clip rounded-[2rem] bg-night px-6 py-20 sm:px-14 sm:py-28">
         <div className="grid items-center gap-14 lg:grid-cols-2">
           <div>
             <Reveal>
@@ -70,7 +94,7 @@ export default function AiSection() {
             </Reveal>
           </div>
 
-          {/* prompt → shapes vignette */}
+          {/* prompt → shapes board */}
           <div className="rounded-2xl border border-white/10 bg-night-soft p-5 sm:p-7">
             <div className="rounded-xl border border-white/10 bg-black/30 px-4 py-3">
               <TypedPrompt />
@@ -105,33 +129,25 @@ export default function AiSection() {
 
         {/* the five things it actually does */}
         <div className="mt-16 grid gap-4 border-t border-white/10 pt-12 sm:grid-cols-2 lg:grid-cols-5">
-          {[
-            {
-              name: "Generate",
-              body: "“A login flow with three steps” becomes three connected shapes, placed where you left off.",
-            },
-            {
-              name: "Diagram",
-              body: "Paste or describe a process; get a full Mermaid flowchart rendered as editable canvas shapes.",
-            },
-            {
-              name: "Transform",
-              body: "Ask it to tidy, align, restyle or rearrange what you already drew — your shapes, reworked.",
-            },
-            {
-              name: "Describe",
-              body: "It reads the board back to you — useful when a sketch needs to become a paragraph.",
-            },
-            {
-              name: "Suggest",
-              body: "Stuck at a blank canvas? Ask for directions worth sketching and pick one.",
-            },
-          ].map((c, i) => (
+          {capabilities.map((c, i) => (
             <Reveal key={c.name} delay={i}>
-              <div className="h-full rounded-xl border border-white/10 bg-white/3 p-5 transition-colors duration-500 hover:border-accent/60">
-                <h3 className="font-serif text-lg italic text-coral">{c.name}</h3>
-                <p className="mt-2 text-[13px] leading-relaxed text-white/60">{c.body}</p>
-              </div>
+              <motion.div
+                whileHover={{ y: -5 }}
+                transition={{ type: "spring", stiffness: 300, damping: 22 }}
+                className="h-full"
+              >
+                <SpotlightCard className="group relative h-full rounded-xl border border-white/10 bg-linear-to-b from-white/6 to-white/2 p-5 transition-colors duration-500 hover:border-accent/60">
+                  <span
+                    aria-hidden
+                    className="absolute right-4 top-4 font-serif text-sm italic text-white/25 transition-colors duration-500 group-hover:text-accent"
+                  >
+                    0{i + 1}
+                  </span>
+                  <span className="block h-px w-8 bg-coral/70 transition-all duration-500 group-hover:w-12 group-hover:bg-accent" />
+                  <h3 className="mt-4 font-serif text-lg italic text-coral">{c.name}</h3>
+                  <p className="mt-2 text-[13px] leading-relaxed text-white/60">{c.body}</p>
+                </SpotlightCard>
+              </motion.div>
             </Reveal>
           ))}
         </div>

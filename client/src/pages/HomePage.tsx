@@ -22,7 +22,7 @@ export default function HomePage() {
           <main>
             <Hero />
             <HowItWorks />
-            <SheetStack>
+            <SheetStack bareSheets={[1]}>
               <>
                 <Features />
                 <ScrollVelocity
