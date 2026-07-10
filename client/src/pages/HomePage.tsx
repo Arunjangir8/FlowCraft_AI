@@ -11,6 +11,7 @@ import Faq from "../components/home/Faq";
 import Closing from "../components/home/Closing";
 import ClickSpark from "../components/home/bits/ClickSpark";
 import ScrollVelocity from "../components/home/bits/ScrollVelocity";
+import SheetStack from "../components/home/bits/SheetStack";
 
 export default function HomePage() {
   return (
@@ -21,14 +22,18 @@ export default function HomePage() {
           <main>
             <Hero />
             <HowItWorks />
-            <Features />
-            <ScrollVelocity
-              text="Sketch · Diagram · Describe · Share · "
-              className="py-6 font-serif text-[clamp(2.2rem,5vw,3.8rem)] italic text-ink/10 select-none"
-            />
-            <AiSection />
-            <UseCases />
-            <CollabSection />
+            <SheetStack>
+              <>
+                <Features />
+                <ScrollVelocity
+                  text="Sketch · Diagram · Describe · Share · "
+                  className="py-6 font-serif text-[clamp(2.2rem,5vw,3.8rem)] italic text-ink/10 select-none"
+                />
+              </>
+              <AiSection />
+              <UseCases />
+              <CollabSection />
+            </SheetStack>
             <Trust />
             <Faq />
           </main>
