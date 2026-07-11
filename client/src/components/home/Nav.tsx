@@ -66,7 +66,7 @@ export default function Nav({ menuItems }: { menuItems?: StaggeredMenuItem[] } =
   const [solid, setSolid] = useState(false);
   useMotionValueEvent(scrollY, "change", (v) => setSolid(v > 24));
 
-  const showMenu = onDashboard && !!user && !!menuItems?.length;
+  const showMenu = !!user && !!menuItems?.length;
 
   return (
     <motion.header

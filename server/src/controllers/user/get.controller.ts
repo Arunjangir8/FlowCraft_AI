@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { APIError, HttpStatusCode } from "../../shared/api-error";
 import { authService } from "../../classes/AuthService";
+import { prisma } from "../../lib/prisma";
 
 
 export const getMeController = async (
@@ -23,10 +24,15 @@ export const getMeController = async (
     // Remove sensitive fields
     const { passwordHash, ...safeUser } = user as any;
 
+    const subscription = await prisma.subscription.findUnique({
+      where: { userId: user.id },
+      include: { plan: true },
+    });
+
     res.status(200).json({
       success: true,
       message: "User fetched successfully",
-      data: safeUser,
+      data: { ...safeUser, subscription },
     });
   } catch (err: any) {
     next(

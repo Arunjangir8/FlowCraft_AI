@@ -7,6 +7,7 @@ import { DrawingLoader } from "../../components/common/Loader";
 import Nav from "../../components/home/Nav";
 import SpotlightCard from "../../components/home/bits/SpotlightCard";
 import { EASE, Magnetic, Reveal } from "../../components/home/motion";
+import { useMenuItems } from "../../hooks/useMenuItems";
 
 type FileData = {
   id: string;
@@ -39,13 +40,9 @@ export default function Dashboard() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
-
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
-  };
+  const menuItems = useMenuItems(() => setShowModal(true));
 
   useEffect(() => {
     loadFiles();
@@ -154,13 +151,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-paper text-ink">
-      <Nav
-        menuItems={[
-          { label: "New drawing", onClick: () => setShowModal(true) },
-          { label: "Usage", onClick: () => navigate("/usage") },
-          { label: "Log out", onClick: handleLogout, danger: true },
-        ]}
-      />
+      <Nav menuItems={menuItems} />
 
       <main className="mx-auto w-full max-w-6xl px-5 pt-28 pb-20 sm:px-8 sm:pt-32">
         {/* ── Header ── */}

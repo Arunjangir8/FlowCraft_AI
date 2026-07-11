@@ -4,6 +4,7 @@ import { http } from "../../services/http";
 import { DrawingLoader } from "../../components/common/Loader";
 import Nav from "../../components/home/Nav";
 import { Reveal } from "../../components/home/motion";
+import { useMenuItems } from "../../hooks/useMenuItems";
 
 type FileUsage = {
   id: string;
@@ -126,6 +127,7 @@ export default function AiUsage() {
 
   const aiFileList = data?.files.filter((f) => f.isAiFile) ?? [];
   const simpleFileList = data?.files.filter((f) => !f.isAiFile) ?? [];
+  const menuItems = useMenuItems();
 
   const toggleFile = async (fileId: string) => {
     if (openFileId === fileId) {
@@ -147,7 +149,7 @@ export default function AiUsage() {
 
   return (
     <div className="min-h-screen bg-paper text-ink">
-      <Nav />
+      <Nav menuItems={menuItems} />
 
       <main className="mx-auto w-full max-w-4xl px-5 pt-28 pb-20 sm:px-8 sm:pt-32">
         <Reveal>

@@ -6,6 +6,8 @@ import ProtectedRoute from "./components/Auth/ProtectedRoute";
 import PublicRoute from "./components/Auth/PublicRoute";
 import Dashboard from "./pages/user/Dashboard";
 import AiUsage from "./pages/user/Usage";
+import Profile from "./pages/user/Profile";
+import Terms from "./pages/user/Terms";
 
 function App() {
   return (
@@ -25,6 +27,22 @@ function App() {
           element={
             <ProtectedRoute>
               <AiUsage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/terms"
+          element={
+            <ProtectedRoute>
+              <Terms />
             </ProtectedRoute>
           }
         />
