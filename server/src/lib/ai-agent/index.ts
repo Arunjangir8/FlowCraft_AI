@@ -234,23 +234,23 @@ Current user message:
 ${userMessage}
     `.trim();
 
-    const decisionResult = await openaiJson.invoke(routingPrompt);
-    const rawDecision =
-        typeof decisionResult.content === "string"
-            ? decisionResult.content
-            : JSON.stringify(decisionResult.content);
-
-    const cleanedDecision = rawDecision
-        .replace(/^```(?:json)?\n?/i, "")
-        .replace(/\n?```$/i, "")
-        .trim();
-
     let decision: GeminiAgentDecision;
 
     try {
+        const decisionResult = await openaiJson.invoke(routingPrompt);
+        const rawDecision =
+            typeof decisionResult.content === "string"
+                ? decisionResult.content
+                : JSON.stringify(decisionResult.content);
+
+        const cleanedDecision = rawDecision
+            .replace(/^```(?:json)?\n?/i, "")
+            .replace(/\n?```$/i, "")
+            .trim();
+
         decision = JSON.parse(cleanedDecision) as GeminiAgentDecision;
     } catch (err) {
-        console.error("[DrawingAgent] OpenAI routing parse failed:", err);
+        console.error("[DrawingAgent] OpenAI routing call/parse failed:", err);
         return {
             reply: "I hit a formatting issue, but I can still help. Try rephrasing what you'd like to draw.",
             newShapes: null,
