@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
+import { logger } from "../../shared/logger";
 
 const openaiEdit = new ChatOpenAI({
     model: "gpt-4o",
@@ -84,7 +85,7 @@ export interface EditAgentResult {
 
 const MAX_OPERATIONS = 100;
 
-type Box = { minX: number; minY: number; maxX: number; maxY: number };
+export type Box = { minX: number; minY: number; maxX: number; maxY: number };
 
 function shapeBounds(s: Record<string, unknown>): Box | null {
     const xs: number[] = [], ys: number[] = [];
@@ -98,7 +99,7 @@ function shapeBounds(s: Record<string, unknown>): Box | null {
     return { minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs), maxY: Math.max(...ys) };
 }
 
-function collectBounds(shapes: Array<Record<string, unknown>>): Box | null {
+export function collectBounds(shapes: Array<Record<string, unknown>>): Box | null {
     let out: Box | null = null;
     for (const s of shapes) {
         const b = shapeBounds(s);
@@ -216,22 +217,23 @@ export async function runEditAgent(input: EditAgentInput): Promise<EditAgentResu
         instruction,
     ].join("\n");
 
-    const result = await openaiEdit.invoke(prompt);
-    const rawText =
-        typeof result.content === "string"
-            ? result.content
-            : JSON.stringify(result.content);
-
-    const cleaned = rawText
-        .replace(/^```(?:json)?\n?/i, "")
-        .replace(/\n?```$/i, "")
-        .trim();
-
     let parsed: unknown;
     try {
+        const result = await openaiEdit.invoke(prompt);
+        const rawText =
+            typeof result.content === "string"
+                ? result.content
+                : JSON.stringify(result.content);
+
+        const cleaned = rawText
+            .replace(/^```(?:json)?\n?/i, "")
+            .replace(/\n?```$/i, "")
+            .trim();
+
+        logger.info("[EditAgent] raw response", { rawText: cleaned });
         parsed = JSON.parse(cleaned);
     } catch (err) {
-        console.error("[EditAgent] AI returned invalid JSON:", err);
+        logger.error("[EditAgent] OpenAI call or JSON parse failed", { err });
         return { message: "The AI response was malformed — please try again.", operations: [], dropped: 0 };
     }
 
@@ -240,6 +242,7 @@ export async function runEditAgent(input: EditAgentInput): Promise<EditAgentResu
     );
 
     const { operations, dropped } = validateOperations(shapes, envelope.operations);
+    logger.info("[EditAgent] result", { message: envelope.message, opCount: operations.length, dropped });
 
     // Safety net: a brand-new diagram (pure creation) must never land on top of
     // the existing drawing, even if the model ignored the occupied-space rule.

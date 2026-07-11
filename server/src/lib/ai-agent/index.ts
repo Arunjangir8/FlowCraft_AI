@@ -6,6 +6,8 @@ import {
     buildSystemPrompt,
     type DrawShape,
 } from "./tools";
+import { collectBounds } from "./edit";
+import { logger } from "../../shared/logger";
 
 const openaiJson = new ChatOpenAI({
     model: "gpt-4o",
@@ -27,8 +29,10 @@ export async function generateShapesFromPrompt(
     canvasWidth: number = 1200,
     canvasHeight: number = 800,
     idOffset: number = 0,
+    existingShapes: DrawShape[] = [],
 ): Promise<DrawShape[]> {
-    const systemPrompt = buildSystemPrompt(canvasWidth, canvasHeight);
+    const occupied = collectBounds(existingShapes);
+    const systemPrompt = buildSystemPrompt(canvasWidth, canvasHeight, occupied);
     const fullPrompt = `${systemPrompt}\n\n---\n\nDRAWING REQUEST:\n${prompt}`;
 
     const result = await openaiJson.invoke(fullPrompt);
@@ -42,11 +46,28 @@ export async function generateShapesFromPrompt(
         .replace(/\n?```$/i, "")
         .trim();
 
+    logger.info("[DrawingAgent] shapes raw response", { rawText: cleaned });
+
     const parsed = JSON.parse(cleaned);
     let shapes: DrawShape[] = Array.isArray(parsed)
         ? parsed
         : (parsed.shapes ?? parsed.elements ?? parsed.data ?? Object.values(parsed).find((v) => Array.isArray(v)) ?? []);
-    shapes = shapes.map((s, i) => ({ ...s, id: idOffset + i + 1 }));
+
+    // Model assigns temp ids in creation order and binds arrows to them;
+    // remap those temp ids to the final offset ids in the same pass.
+    const idMap = new Map<string, number>();
+    shapes.forEach((s, i) => {
+        if (s.id != null) idMap.set(String(s.id), idOffset + i + 1);
+    });
+    const remapBinding = (b: DrawShape["startBinding"]) =>
+        b && idMap.has(String(b.shapeId)) ? { ...b, shapeId: idMap.get(String(b.shapeId))! } : undefined;
+
+    shapes = shapes.map((s, i) => ({
+        ...s,
+        id: idOffset + i + 1,
+        startBinding: remapBinding(s.startBinding),
+        endBinding: remapBinding(s.endBinding),
+    }));
 
     return shapes;
 }
@@ -249,8 +270,9 @@ ${userMessage}
             .trim();
 
         decision = JSON.parse(cleanedDecision) as GeminiAgentDecision;
+        logger.info("[DrawingAgent] routed", { action: decision.action, reply: decision.reply });
     } catch (err) {
-        console.error("[DrawingAgent] OpenAI routing call/parse failed:", err);
+        logger.error("[DrawingAgent] OpenAI routing call/parse failed", { err });
         return {
             reply: "I hit a formatting issue, but I can still help. Try rephrasing what you'd like to draw.",
             newShapes: null,
@@ -273,10 +295,12 @@ ${userMessage}
                 decision.canvasWidth ?? canvasWidth,
                 decision.canvasHeight ?? canvasHeight,
                 existingShapes.length,
+                existingShapes,
             );
             allShapes = [...existingShapes, ...newShapes];
+            logger.info("[DrawingAgent] shapes generated", { count: newShapes.length });
         } catch (err) {
-            console.error("[DrawingAgent] OpenAI shape generation failed:", err);
+            logger.error("[DrawingAgent] OpenAI shape generation failed", { err });
             newShapes = [];
             allShapes = existingShapes;
         }
@@ -289,8 +313,9 @@ ${userMessage}
                 decision.diagramPrompt,
             );
             diagramType = decision.resolvedType;
+            logger.info("[DrawingAgent] diagram generated", { diagramType });
         } catch (err) {
-            console.error("[DrawingAgent] OpenAI diagram generation failed:", err);
+            logger.error("[DrawingAgent] OpenAI diagram generation failed", { err });
         }
     }
 
