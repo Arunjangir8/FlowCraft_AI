@@ -40,7 +40,10 @@ export default function DrawingPadPage() {
     const bgColorRef = useRef(bgColor);
     const zoomRef    = useRef(zoom);
     const panRef     = useRef(pan);
-    const esRef      = useRef<EventSource | null>(null); 
+    const esRef      = useRef<EventSource | null>(null);
+    // Lets the initial-load sync detect if the user toggled the theme
+    // before the fetch resolved, so it doesn't stomp their choice.
+    const initialBgRef = useRef(bgColor);
 
     useEffect(() => { shapesRef.current  = shapes;  }, [shapes]);
     useEffect(() => { bgColorRef.current = bgColor; }, [bgColor]);
@@ -130,7 +133,7 @@ export default function DrawingPadPage() {
         }
     };
 
-    const onSync = async () => {
+    const onSync = async (isInitialLoad = false) => {
         if (!fileId) return;
         let res;
         try {
@@ -145,11 +148,15 @@ export default function DrawingPadPage() {
         const newBg     = drawing.bgColor    || "#0d1117";
         const newZoom   = drawing.zoom       || 1;
         const newPan    = { x: drawing.panX  || 0, y: drawing.panY || 0 };
+        // On the initial load sync, don't override a theme toggle the user
+        // already made while this fetch was in flight.
+        const userChangedBgDuringLoad = isInitialLoad && bgColorRef.current !== initialBgRef.current;
+        const resolvedBg = userChangedBgDuringLoad ? bgColorRef.current : newBg;
         setShapes(newShapes);
-        setBgColor(newBg);
+        setBgColor(resolvedBg);
         setZoom(newZoom);
         setPan(newPan);
-        persistLocal({ shapes: newShapes, bgColor: newBg, zoom: newZoom, pan: newPan });
+        persistLocal({ shapes: newShapes, bgColor: resolvedBg, zoom: newZoom, pan: newPan });
         setHasLocalCache(true);
     };
 
@@ -170,7 +177,7 @@ export default function DrawingPadPage() {
     useEffect(() => {
         if (!fileId) { createNewFile(); return; }
         if (_hasLocal) return;
-        onSync();
+        onSync(true);
     }, [fileId, createNewFile]);
 
     if (!fileId) {
