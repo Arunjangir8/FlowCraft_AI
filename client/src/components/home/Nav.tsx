@@ -1,5 +1,5 @@
 import { motion, useMotionValueEvent, useScroll } from "framer-motion";
-import { useState } from "react";
+import { useState, type MouseEvent } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../Auth/AuthContext";
 import { EASE, Magnetic } from "./motion";
@@ -24,6 +24,51 @@ const links = [
   { label: "Together", href: "#together" },
   { label: "FAQ", href: "#faq" },
 ];
+
+const NAV_H = 64; // h-16
+
+/** Absolute document top via the offsetParent chain. WARNING: a
+ *  `position: sticky` element's own offsetTop reports its *stuck* offset in
+ *  Chrome (scroll-dependent), so never pass a sticky node here — pass a
+ *  statically-positioned ancestor instead. */
+function absoluteTop(el: HTMLElement) {
+  let top = 0;
+  let node: HTMLElement | null = el;
+  while (node) {
+    top += node.offsetTop;
+    node = node.offsetParent as HTMLElement | null;
+  }
+  return top;
+}
+
+/**
+ * Scroll target for a nav hash. Sections inside SheetStack are vertically
+ * centered in a full-height, `sticky` "sheet"; a plain anchor jump targets
+ * the inner section's mid-sheet position, fights the pin, and lands on the
+ * wrong sheet. We want the sheet's *flow* top — but a sticky element's
+ * offsetTop/rect both report its current stuck position, which drifts with
+ * scroll and makes the scroll "walk" toward the target over several clicks.
+ * So build it from scroll-stable numbers: the non-sticky SheetStack
+ * container's absolute top + the summed heights of the preceding sheets.
+ */
+function targetTop(el: HTMLElement) {
+  const sheet = el.closest("[data-sheet]") as HTMLElement | null;
+  const container = sheet?.parentElement;
+  if (!sheet || !container) return absoluteTop(el); // non-stacked (e.g. #faq)
+  let flow = 0;
+  for (const child of container.children) {
+    if (child === sheet) break;
+    if (child.matches("[data-sheet]")) flow += (child as HTMLElement).offsetHeight;
+  }
+  return absoluteTop(container) + flow;
+}
+
+function scrollToHash(e: MouseEvent<HTMLAnchorElement>, href: string) {
+  const el = document.getElementById(href.slice(1));
+  if (!el) return; // no target → let the browser do its default thing
+  e.preventDefault();
+  window.scrollTo({ top: targetTop(el) - NAV_H, behavior: "smooth" });
+}
 
 export default function Nav() {
   const { user } = useAuth();
@@ -59,6 +104,7 @@ export default function Nav() {
               <a
                 key={l.href}
                 href={l.href}
+                onClick={(e) => scrollToHash(e, l.href)}
                 className="text-sm text-ink-soft transition-colors duration-300 hover:text-ink focus-visible:ring-2 focus-visible:ring-accent outline-none rounded"
               >
                 {l.label}

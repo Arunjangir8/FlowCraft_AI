@@ -88,6 +88,7 @@ function Sheet({
   return (
     <div
       ref={ref}
+      data-sheet
       className="sticky"
       style={{
         top: `min(0px, calc(100dvh - ${height}px))`,

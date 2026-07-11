@@ -28,6 +28,19 @@ body,
   height: 100%;
 }
 
+/* Animated jump for in-page anchor links (navbar). scroll-padding-top
+   keeps the target clear of the fixed h-16 (4rem) header. */
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 4rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
 body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;

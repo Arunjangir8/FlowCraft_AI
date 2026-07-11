@@ -1,4 +1,4 @@
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion, useScroll, useSpring, useTransform } from "framer-motion";
 import { useRef } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../Auth/AuthContext";
@@ -34,6 +34,17 @@ export default function Hero() {
     offset: ["start start", "end end"],
   });
 
+  // Spring-smooth the raw scroll progress so every scroll-linked
+  // transform below eases toward the scroll position instead of tracking
+  // it 1:1 — kills the frame-stepped/jittery feel on trackpads and
+  // touch. Low mass + high damping = follows closely, settles fast, no
+  // rubber-band overshoot at the ends.
+  const progress = useSpring(scrollYProgress, {
+    stiffness: 120,
+    damping: 30,
+    mass: 0.4,
+  });
+
   // Mock: peeking at the bottom → covering the copy. `svh` (stable
   // viewport height), not `dvh` — `dvh` grows mid-gesture as the mobile
   // toolbar collapses, which desyncs this section's measured scroll
@@ -48,15 +59,15 @@ export default function Hero() {
   // visible above it, with no dead space under the card. Desktop keeps
   // the original full-takeover near-top rest (6svh) since its landscape
   // mock nearly fills the viewport there.
-  const mockYMobile = useTransform(scrollYProgress, [0, 1], ["100svh", "66svh"]);
-  const mockYDesktop = useTransform(scrollYProgress, [0, 1], ["86svh", "6svh"]);
+  const mockYMobile = useTransform(progress, [0, 1], ["100svh", "66svh"]);
+  const mockYDesktop = useTransform(progress, [0, 1], ["86svh", "6svh"]);
 
-  const mockRotate = useTransform(scrollYProgress, [0, 0.6], [4, 0]);
-  const mockScale = useTransform(scrollYProgress, [0, 1], [0.97, 1]);
+  const mockRotate = useTransform(progress, [0, 0.6], [4, 0]);
+  const mockScale = useTransform(progress, [0, 1], [0.97, 1]);
 
   // Copy: settles back as the canvas takes over.
-  const copyY = useTransform(scrollYProgress, [0, 1], ["0svh", "-6svh"]);
-  const copyScale = useTransform(scrollYProgress, [0, 1], [1, 0.96]);
+  const copyY = useTransform(progress, [0, 1], ["0svh", "-6svh"]);
+  const copyScale = useTransform(progress, [0, 1], [1, 0.96]);
 
   // Mask painted across the full sticky viewport (same coordinate frame
   // as mockY): opaque until the mock's current top edge, transparent
