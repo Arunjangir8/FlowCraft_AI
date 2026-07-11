@@ -9,10 +9,10 @@ export function useMenuItems(onNewDrawing?: () => void): StaggeredMenuItem[] {
   const { logout } = useAuth();
 
   return [
-    { label: "New drawing", onClick: onNewDrawing ?? (() => navigate("/dashboard")) },
-    { label: "Usage", onClick: () => navigate("/usage") },
-    { label: "Profile", onClick: () => navigate("/profile") },
-    { label: "Terms & Policy", onClick: () => navigate("/terms") },
+    { label: "Dashboard", onClick: onNewDrawing ?? (() => navigate("/dashboard")), path: "/dashboard" },
+    { label: "Usage", onClick: () => navigate("/usage"), path: "/usage" },
+    { label: "Profile", onClick: () => navigate("/profile"), path: "/profile" },
+    { label: "Terms & Policy", onClick: () => navigate("/terms"), path: "/terms" },
     {
       label: "Log out",
       onClick: () => {

@@ -1,11 +1,14 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useState, type ReactNode } from "react";
+import { useLocation } from "react-router-dom";
 import { EASE } from "../motion";
 
 export type StaggeredMenuItem = {
   label: string;
   onClick: () => void;
   danger?: boolean;
+  // Route this item links to — lets the menu mark it as the current page.
+  path?: string;
 };
 
 /**
@@ -23,6 +26,7 @@ export default function StaggeredMenu({
   extra?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const location = useLocation();
 
   return (
     <>
@@ -72,25 +76,34 @@ export default function StaggeredMenu({
               >
                 Menu
               </motion.p>
-              {items.map((item, i) => (
-                <motion.button
-                  key={item.label}
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 16 }}
-                  transition={{ duration: 0.35, ease: EASE, delay: (i + 1) * 0.06 }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setOpen(false);
-                    item.onClick();
-                  }}
-                  className={`text-2xl font-medium uppercase tracking-tight transition-colors duration-300 sm:text-3xl ${
-                    item.danger ? "text-coral hover:text-coral/80" : "text-ink hover:text-accent"
-                  }`}
-                >
-                  {item.label}
-                </motion.button>
-              ))}
+              {items.map((item, i) => {
+                const isActive = !!item.path && location.pathname === item.path;
+                return (
+                  <motion.button
+                    key={item.label}
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 16 }}
+                    transition={{ duration: 0.35, ease: EASE, delay: (i + 1) * 0.06 }}
+                    aria-disabled={isActive}
+                    aria-current={isActive ? "page" : undefined}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setOpen(false);
+                      if (!isActive) item.onClick();
+                    }}
+                    className={`text-2xl uppercase tracking-tight transition-colors duration-300 sm:text-3xl ${
+                      isActive
+                        ? "font-normal text-ink-faint/60 line-through"
+                        : item.danger
+                        ? "font-medium text-coral hover:text-coral/80"
+                        : "font-medium text-ink hover:text-accent"
+                    }`}
+                  >
+                    {item.label}
+                  </motion.button>
+                );
+              })}
               {extra && (
                 <motion.div
                   initial={{ opacity: 0, y: 16 }}
