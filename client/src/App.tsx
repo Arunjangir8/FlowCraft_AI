@@ -5,7 +5,7 @@ import AuthForm from "./pages/user/Auth";
 import ProtectedRoute from "./components/Auth/ProtectedRoute";
 import PublicRoute from "./components/Auth/PublicRoute";
 import Dashboard from "./pages/user/Dashboard";
-import AiUsage from "./pages/user/AiUsage";
+import AiUsage from "./pages/user/Usage";
 
 function App() {
   return (
@@ -21,7 +21,7 @@ function App() {
           }
         />
         <Route
-          path="/ai-usage"
+          path="/usage"
           element={
             <ProtectedRoute>
               <AiUsage />

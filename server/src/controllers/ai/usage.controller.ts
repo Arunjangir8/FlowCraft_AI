@@ -5,6 +5,7 @@ import { Request, Response, NextFunction } from "express";
 
 const AI_CALL_LIMIT = 20;
 const AI_FILE_LIMIT = 3;
+const FILE_LIMIT = 12;
 
 export const getAiUsage = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -15,9 +16,9 @@ export const getAiUsage = async (req: Request, res: Response, next: NextFunction
 
     const [files, subscription, aiFilesUsed] = await Promise.all([
       prisma.file.findMany({
-        where: { ownerId: user.id, isAiFile: true, deletedAt: null },
-        select: { id: true, title: true, aiCallsUsed: true, updatedAt: true },
-        orderBy: { updatedAt: "desc" },
+        where: { ownerId: user.id, deletedAt: null },
+        select: { id: true, title: true, isAiFile: true, aiCallsUsed: true, updatedAt: true },
+        orderBy: [{ isAiFile: "desc" }, { updatedAt: "desc" }],
       }),
       prisma.subscription.findUnique({ where: { userId: user.id }, include: { plan: true } }),
       fileSaveService.countAiFiles(user.id),
@@ -25,19 +26,28 @@ export const getAiUsage = async (req: Request, res: Response, next: NextFunction
 
     const usage = await prisma.aiUsage.findUnique({ where: { userId: user.id } });
 
+    const simpleFilesUsed = files.length - aiFilesUsed;
+    const simpleFilesLimit = Math.max(0, FILE_LIMIT - aiFilesUsed);
+
     return res.status(200).json({
       aiFiles: {
         used: aiFilesUsed,
         limit: AI_FILE_LIMIT,
         remaining: Math.max(0, AI_FILE_LIMIT - aiFilesUsed),
       },
+      simpleFiles: {
+        used: simpleFilesUsed,
+        limit: simpleFilesLimit,
+        remaining: Math.max(0, simpleFilesLimit - simpleFilesUsed),
+      },
       files: files.map((f) => ({
         id: f.id,
         title: f.title,
         updatedAt: f.updatedAt,
+        isAiFile: f.isAiFile,
         aiCallsUsed: f.aiCallsUsed,
-        aiCallsLimit: AI_CALL_LIMIT,
-        aiCallsRemaining: Math.max(0, AI_CALL_LIMIT - f.aiCallsUsed),
+        aiCallsLimit: f.isAiFile ? AI_CALL_LIMIT : null,
+        aiCallsRemaining: f.isAiFile ? Math.max(0, AI_CALL_LIMIT - f.aiCallsUsed) : null,
       })),
       lifetime: {
         chatsUsed: usage?.chatsUsed ?? 0,

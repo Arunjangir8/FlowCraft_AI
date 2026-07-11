@@ -170,10 +170,10 @@ export default function Dashboard() {
             </div>
             <div className="flex items-center gap-3">
               <Link
-                to="/ai-usage"
+                to="/usage"
                 className="inline-flex h-13 items-center rounded-full border border-line px-6 text-[15px] font-medium text-ink-soft transition-colors duration-300 hover:border-ink hover:text-ink outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
-                AI usage
+                Usage
               </Link>
               <button
                 onClick={handleLogout}
