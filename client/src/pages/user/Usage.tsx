@@ -197,50 +197,50 @@ export default function AiUsage() {
               </div>
             </Reveal>
 
-            <Reveal delay={2}>
-              <h2 className="mt-10 mb-4 text-sm font-semibold uppercase tracking-wide text-ink-faint">
-                AI files
-              </h2>
-            </Reveal>
+            {aiFileList.length > 0 && (
+              <>
+                <Reveal delay={2}>
+                  <h2 className="mt-10 mb-4 text-sm font-semibold uppercase tracking-wide text-ink-faint">
+                    AI files
+                  </h2>
+                </Reveal>
 
-            {aiFileList.length === 0 ? (
-              <p className="text-ink-soft">No AI files yet.</p>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {aiFileList.map((f) => (
-                  <FileRow
-                    key={f.id}
-                    file={f}
-                    isOpen={openFileId === f.id}
-                    onToggle={() => toggleFile(f.id)}
-                    messages={openFileId === f.id ? messages : []}
-                    messagesLoading={messagesLoading}
-                  />
-                ))}
-              </div>
+                <div className="flex flex-col gap-3">
+                  {aiFileList.map((f) => (
+                    <FileRow
+                      key={f.id}
+                      file={f}
+                      isOpen={openFileId === f.id}
+                      onToggle={() => toggleFile(f.id)}
+                      messages={openFileId === f.id ? messages : []}
+                      messagesLoading={messagesLoading}
+                    />
+                  ))}
+                </div>
+              </>
             )}
 
-            <Reveal delay={2}>
-              <h2 className="mt-10 mb-4 text-sm font-semibold uppercase tracking-wide text-ink-faint">
-                Simple files
-              </h2>
-            </Reveal>
+            {simpleFileList.length > 0 && (
+              <>
+                <Reveal delay={2}>
+                  <h2 className="mt-10 mb-4 text-sm font-semibold uppercase tracking-wide text-ink-faint">
+                    Simple files
+                  </h2>
+                </Reveal>
 
-            {simpleFileList.length === 0 ? (
-              <p className="text-ink-soft">No simple files yet.</p>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {simpleFileList.map((f) => (
-                  <FileRow
-                    key={f.id}
-                    file={f}
-                    isOpen={openFileId === f.id}
-                    onToggle={() => toggleFile(f.id)}
-                    messages={openFileId === f.id ? messages : []}
-                    messagesLoading={messagesLoading}
-                  />
-                ))}
-              </div>
+                <div className="flex flex-col gap-3">
+                  {simpleFileList.map((f) => (
+                    <FileRow
+                      key={f.id}
+                      file={f}
+                      isOpen={openFileId === f.id}
+                      onToggle={() => toggleFile(f.id)}
+                      messages={openFileId === f.id ? messages : []}
+                      messagesLoading={messagesLoading}
+                    />
+                  ))}
+                </div>
+              </>
             )}
           </>
         )}

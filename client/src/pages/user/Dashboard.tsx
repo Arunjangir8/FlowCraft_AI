@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { http } from "../../services/http";
 import { useAuth } from "../../components/Auth/AuthContext";
@@ -154,7 +154,13 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-paper text-ink">
-      <Nav />
+      <Nav
+        menuItems={[
+          { label: "New drawing", onClick: () => setShowModal(true) },
+          { label: "Usage", onClick: () => navigate("/usage") },
+          { label: "Log out", onClick: handleLogout, danger: true },
+        ]}
+      />
 
       <main className="mx-auto w-full max-w-6xl px-5 pt-28 pb-20 sm:px-8 sm:pt-32">
         {/* ── Header ── */}
@@ -169,18 +175,6 @@ export default function Dashboard() {
               </h1>
             </div>
             <div className="flex items-center gap-3">
-              <Link
-                to="/usage"
-                className="inline-flex h-13 items-center rounded-full border border-line px-6 text-[15px] font-medium text-ink-soft transition-colors duration-300 hover:border-ink hover:text-ink outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              >
-                Usage
-              </Link>
-              <button
-                onClick={handleLogout}
-                className="inline-flex h-13 items-center rounded-full border border-line px-6 text-[15px] font-medium text-ink-soft transition-colors duration-300 hover:border-ink hover:text-ink outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              >
-                Log out
-              </button>
               <Magnetic strength={0.15}>
                 <button
                   onClick={() => setShowModal(true)}

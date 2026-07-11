@@ -1,8 +1,9 @@
 import { motion, useMotionValueEvent, useScroll } from "framer-motion";
 import { useState, type MouseEvent } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../Auth/AuthContext";
 import { EASE, Magnetic } from "./motion";
+import StaggeredMenu, { type StaggeredMenuItem } from "./bits/StaggeredMenu";
 
 export function LineaMark({ className = "h-6 w-6" }: { className?: string }) {
   return (
@@ -56,13 +57,16 @@ function scrollToHash(e: MouseEvent<HTMLAnchorElement>, href: string) {
   window.scrollTo({ top: targetTop(el) - NAV_H, behavior: "smooth" });
 }
 
-export default function Nav() {
+export default function Nav({ menuItems }: { menuItems?: StaggeredMenuItem[] } = {}) {
   const { user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const onDashboard = location.pathname.startsWith("/dashboard");
   const { scrollY } = useScroll();
   const [solid, setSolid] = useState(false);
   useMotionValueEvent(scrollY, "change", (v) => setSolid(v > 24));
+
+  const showMenu = onDashboard && !!user && !!menuItems?.length;
 
   return (
     <motion.header
@@ -99,14 +103,25 @@ export default function Nav() {
           </div>
         )}
 
-        <Magnetic strength={0.2}>
-          <Link
-            to={!user ? "/login" : onDashboard ? "/" : "/dashboard"}
-            className="inline-flex h-10 items-center rounded-full bg-ink px-5 text-sm font-medium text-paper transition-colors duration-300 hover:bg-accent outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-          >
-            {!user ? "Sign in" : onDashboard ? "Home" : "Open studio"}
-          </Link>
-        </Magnetic>
+        <div className="flex items-center gap-3">
+          <Magnetic strength={0.2}>
+            <Link
+              to={!user ? "/login" : onDashboard ? "/" : "/dashboard"}
+              className={`inline-flex h-10 items-center rounded-full bg-ink px-5 text-sm font-medium text-paper transition-colors duration-300 hover:bg-accent outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
+                showMenu ? "hidden sm:inline-flex" : ""
+              }`}
+            >
+              {!user ? "Sign in" : onDashboard ? "Home" : "Open studio"}
+            </Link>
+          </Magnetic>
+
+          {showMenu && (
+            <StaggeredMenu
+              label="Menu"
+              items={[{ label: "Home", onClick: () => navigate("/") }, ...menuItems!]}
+            />
+          )}
+        </div>
       </nav>
     </motion.header>
   );

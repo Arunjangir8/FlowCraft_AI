@@ -26,8 +26,9 @@ export const getAiUsage = async (req: Request, res: Response, next: NextFunction
 
     const usage = await prisma.aiUsage.findUnique({ where: { userId: user.id } });
 
-    const simpleFilesUsed = files.length - aiFilesUsed;
-    const simpleFilesLimit = Math.max(0, FILE_LIMIT - aiFilesUsed);
+    const liveAiFilesCount = files.filter((f) => f.isAiFile).length;
+    const simpleFilesUsed = files.length - liveAiFilesCount;
+    const simpleFilesLimit = Math.max(0, FILE_LIMIT - liveAiFilesCount);
 
     return res.status(200).json({
       aiFiles: {

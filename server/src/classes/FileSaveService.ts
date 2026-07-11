@@ -158,7 +158,7 @@ class FileSaveService {
 
   async countAiFiles(userId: string): Promise<number> {
     return prisma.file.count({
-      where: { ownerId: userId, isAiFile: true, deletedAt: null },
+      where: { ownerId: userId, isAiFile: true },
     });
   }
 
