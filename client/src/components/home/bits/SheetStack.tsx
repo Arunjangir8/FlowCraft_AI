@@ -13,7 +13,7 @@ import {
  * A sheet pins while the next sheet slides up and covers it; the covered
  * sheet settles back into the pad — scaled down, dimmed, with a hint of
  * paper tilt. Sheets taller than the viewport pin with a negative top
- * offset (`min(0, 100vh - height)`) so they can be read in full first.
+ * offset (`min(0, 100dvh - height)`) so they can be read in full first.
  * Plain scrolling — no pinning tricks beyond position: sticky.
  */
 export default function SheetStack({
@@ -90,13 +90,13 @@ function Sheet({
       ref={ref}
       className="sticky"
       style={{
-        top: `min(0px, calc(100vh - ${height}px))`,
+        top: `min(0px, calc(100dvh - ${height}px))`,
         zIndex: index + 1,
       }}
     >
       <motion.div
         style={nextRef ? { scale, rotate, filter } : undefined}
-        className={`relative flex min-h-screen flex-col justify-center will-change-transform ${
+        className={`relative flex min-h-dvh flex-col justify-center will-change-transform ${
           bare
             ? ""
             : `overflow-clip bg-paper ${

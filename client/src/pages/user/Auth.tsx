@@ -2,11 +2,14 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { GoogleLogin } from "@react-oauth/google";
 import type { CredentialResponse } from "@react-oauth/google";
+import { Link, useNavigate } from "react-router-dom";
 import { http } from "../../services/http";
 import { useAuth } from "../../components/Auth/AuthContext";
-import { useNavigate } from "react-router-dom";
 import { env } from "../../config/env";
 import type { User } from "../../types/api";
+import { LineaMark } from "../../components/home/Nav";
+import DotGrid from "../../components/home/bits/DotGrid";
+import { EASE, Magnetic } from "../../components/home/motion";
 
 type Mode = "login" | "signup";
 
@@ -104,39 +107,54 @@ const AuthForm = () => {
     }
   };
 
+  const inputClass =
+    "w-full rounded-xl border border-line bg-white/60 px-4 py-3 text-[15px] text-ink placeholder:text-ink-faint backdrop-blur transition-colors duration-300 focus:border-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-accent";
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-black px-4 text-white">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-paper px-4 text-ink">
+      <DotGrid className="[mask-image:radial-gradient(circle_at_center,black_10%,transparent_70%)]" />
+      <div aria-hidden className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-40 left-1/2 h-[560px] w-[900px] -translate-x-1/2 rounded-full bg-accent/10 blur-[120px]" />
+        <div className="absolute bottom-0 -right-40 h-[420px] w-[420px] rounded-full bg-coral/10 blur-[100px]" />
+      </div>
+
       <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.4 }}
-        className="w-full max-w-md bg-black border-2 border-white p-8 shadow-[0_0_0_1px_white]"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, ease: EASE }}
+        className="relative w-full max-w-md rounded-2xl border border-line bg-white/70 p-8 shadow-[0_1px_0_0_var(--color-line)] backdrop-blur-md sm:p-10"
       >
-        <div className="text-center mb-4">
-          <motion.h2
+        <Link
+          to="/"
+          className="mb-8 flex items-center justify-center gap-2 text-ink outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <LineaMark />
+          <span className="text-[17px] font-semibold tracking-tight">Linea</span>
+        </Link>
+
+        <div className="text-center mb-7">
+          <motion.h1
             key={mode}
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-            className="text-2xl font-extrabold tracking-wide"
+            className="text-[clamp(1.6rem,4vw,2rem)] font-semibold tracking-[-0.02em] text-ink"
           >
-            {mode === "login" ? "LOGIN" : "CREATE ACCOUNT"}
-          </motion.h2>
-
-          {mode === "login" && (
-            <motion.p
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.05 }}
-              className="text-xs mt-2 text-gray-300 tracking-wide"
-            >
-              WELCOME BACK — LOGIN TO CONTINUE
-            </motion.p>
-          )}
+            {mode === "login" ? (
+              <>Welcome <span className="font-serif italic text-accent">back</span></>
+            ) : (
+              <>Start <span className="font-serif italic text-accent">drawing</span></>
+            )}
+          </motion.h1>
+          <p className="mt-2 text-sm text-ink-soft">
+            {mode === "login"
+              ? "Sign in to pick up where you left off."
+              : "Create an account — it's free."}
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="h-13 overflow-hidden">
+          <div className="h-14 overflow-hidden">
             <AnimatePresence mode="wait">
               {mode === "signup" ? (
                 <motion.input
@@ -147,10 +165,10 @@ const AuthForm = () => {
                   transition={{ duration: 0.2 }}
                   type="text"
                   name="name"
-                  placeholder="FULL NAME"
+                  placeholder="Full name"
                   value={form.name}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 bg-black text-white border-2 border-white focus:outline-none"
+                  className={inputClass}
                 />
               ) : (
                 <div className="h-full" />
@@ -158,80 +176,72 @@ const AuthForm = () => {
             </AnimatePresence>
           </div>
 
-          <motion.input
-            whileFocus={{ scale: 1.02 }}
+          <input
             type="email"
             name="email"
-            placeholder="EMAIL"
+            placeholder="Email"
             value={form.email}
             onChange={handleChange}
-            className="w-full px-4 py-2 bg-black text-white border-2 border-white focus:outline-none"
+            className={inputClass}
           />
 
-          <motion.input
-            whileFocus={{ scale: 1.02 }}
+          <input
             type="password"
             name="password"
-            placeholder="PASSWORD"
+            placeholder="Password"
             value={form.password}
             onChange={handleChange}
-            className="w-full px-4 py-2 bg-black text-white border-2 border-white focus:outline-none"
+            className={inputClass}
           />
 
-          <motion.button
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.96 }}
-            type="submit"
-            disabled={loading}
-            className="w-full bg-white text-black font-extrabold py-2 border-2 border-white hover:bg-black hover:text-white transition disabled:opacity-50"
-          >
-            {loading
-              ? "PLEASE WAIT..."
-              : mode === "login"
-              ? "LOGIN"
-              : "SIGN UP"}
-          </motion.button>
+          <Magnetic strength={0.08} className="block w-full">
+            <button
+              type="submit"
+              disabled={loading}
+              className="inline-flex h-13 w-full items-center justify-center rounded-full bg-ink text-[15px] font-medium text-paper transition-colors duration-300 hover:bg-accent outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:opacity-50"
+            >
+              {loading ? "Please wait…" : mode === "login" ? "Sign in" : "Sign up"}
+            </button>
+          </Magnetic>
         </form>
 
-        <div className="flex items-center my-6">
-          <div className="flex-1 h-0.5 bg-white" />
-          <p className="mx-3 text-xs">OR</p>
-          <div className="flex-1 h-0.5 bg-white" />
+        <div className="my-7 flex items-center gap-3">
+          <div className="h-px flex-1 bg-line" />
+          <p className="text-xs uppercase tracking-[0.18em] text-ink-faint">or</p>
+          <div className="h-px flex-1 bg-line" />
         </div>
 
         {env.googleClientId ? (
-          <div className="w-full flex justify-center">
+          <div className="flex w-full justify-center">
             <GoogleLogin
               onSuccess={(credentialResponse: CredentialResponse) =>
                 handleGoogleSuccess(credentialResponse.credential)
               }
               onError={() => alert("Google login failed")}
-              theme="filled_black"
-              shape="rectangular"
+              theme="outline"
+              shape="pill"
               size="large"
               text="continue_with"
-              width="380"
+              width="360"
             />
           </div>
         ) : (
           <button
             type="button"
             disabled
-            className="w-full flex items-center justify-center gap-3 bg-gray-900 text-gray-400 py-2 font-bold border-2 border-gray-700 cursor-not-allowed"
+            className="flex w-full items-center justify-center gap-3 rounded-full border border-line bg-paper-deep py-3 text-sm font-medium text-ink-faint cursor-not-allowed"
           >
-            SET VITE_GOOGLE_CLIENT_ID TO ENABLE GOOGLE LOGIN
+            Set VITE_GOOGLE_CLIENT_ID to enable Google login
           </button>
         )}
 
-        <p className="text-center text-sm mt-6">
-          {mode === "login"
-            ? "DON'T HAVE AN ACCOUNT?"
-            : "ALREADY HAVE AN ACCOUNT?"}
+        <p className="mt-7 text-center text-sm text-ink-soft">
+          {mode === "login" ? "Don't have an account?" : "Already have an account?"}{" "}
           <button
             onClick={toggleMode}
-            className="ml-2 underline font-bold"
+            className="font-medium text-ink underline decoration-line underline-offset-4 transition-colors duration-300 hover:text-accent"
           >
-            {mode === "login" ? "SIGN UP" : "LOGIN"}
+            {mode === "login" ? "Sign up" : "Sign in"}
           </button>
         </p>
       </motion.div>

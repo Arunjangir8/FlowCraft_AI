@@ -1,6 +1,6 @@
 import { motion, useMotionValueEvent, useScroll } from "framer-motion";
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../Auth/AuthContext";
 import { EASE, Magnetic } from "./motion";
 
@@ -27,6 +27,8 @@ const links = [
 
 export default function Nav() {
   const { user } = useAuth();
+  const location = useLocation();
+  const onDashboard = location.pathname.startsWith("/dashboard");
   const { scrollY } = useScroll();
   const [solid, setSolid] = useState(false);
   useMotionValueEvent(scrollY, "change", (v) => setSolid(v > 24));
@@ -51,24 +53,26 @@ export default function Nav() {
           <span className="text-[17px] font-semibold tracking-tight">Linea</span>
         </Link>
 
-        <div className="hidden items-center gap-8 md:flex">
-          {links.map((l) => (
-            <a
-              key={l.href}
-              href={l.href}
-              className="text-sm text-ink-soft transition-colors duration-300 hover:text-ink focus-visible:ring-2 focus-visible:ring-accent outline-none rounded"
-            >
-              {l.label}
-            </a>
-          ))}
-        </div>
+        {location.pathname === "/" && (
+          <div className="hidden items-center gap-8 md:flex">
+            {links.map((l) => (
+              <a
+                key={l.href}
+                href={l.href}
+                className="text-sm text-ink-soft transition-colors duration-300 hover:text-ink focus-visible:ring-2 focus-visible:ring-accent outline-none rounded"
+              >
+                {l.label}
+              </a>
+            ))}
+          </div>
+        )}
 
         <Magnetic strength={0.2}>
           <Link
-            to={user ? "/dashboard" : "/login"}
+            to={!user ? "/login" : onDashboard ? "/" : "/dashboard"}
             className="inline-flex h-10 items-center rounded-full bg-ink px-5 text-sm font-medium text-paper transition-colors duration-300 hover:bg-accent outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
           >
-            {user ? "Open studio" : "Sign in"}
+            {!user ? "Sign in" : onDashboard ? "Home" : "Open studio"}
           </Link>
         </Magnetic>
       </nav>

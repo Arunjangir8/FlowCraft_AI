@@ -13,7 +13,7 @@ export function DrawingLoader() {
           {/* Border trace animation — draws the square border */}
           <rect
             x="4" y="4" width="88" height="88"
-            stroke="white"
+            stroke="currentColor"
             strokeWidth="2"
             strokeDasharray="352"
             strokeDashoffset="352"
@@ -25,16 +25,16 @@ export function DrawingLoader() {
 
           {/* Pencil icon in the center */}
           <g style={{ animation: "pencil-bob 1.8s ease-in-out infinite" }}>
-            <line x1="38" y1="58" x2="54" y2="42" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-            <line x1="54" y1="42" x2="58" y2="38" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-            <line x1="38" y1="58" x2="34" y2="62" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-            <polyline points="38,58 54,42 58,38 62,42 46,58 38,58" stroke="white" strokeWidth="2" fill="none" strokeLinejoin="round"/>
-            <line x1="54" y1="42" x2="58" y2="46" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+            <line x1="38" y1="58" x2="54" y2="42" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            <line x1="54" y1="42" x2="58" y2="38" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            <line x1="38" y1="58" x2="34" y2="62" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            <polyline points="38,58 54,42 58,38 62,42 46,58 38,58" stroke="currentColor" strokeWidth="2" fill="none" strokeLinejoin="round"/>
+            <line x1="54" y1="42" x2="58" y2="46" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
           </g>
         </svg>
       </div>
 
-      <p className="text-gray-500 text-xs uppercase tracking-[0.25em] animate-pulse">
+      <p className="text-xs uppercase tracking-[0.25em] text-current opacity-60 animate-pulse">
         Loading drawings...
       </p>
 
