@@ -1,20 +1,6 @@
 import { motion, useReducedMotion, useSpring } from "framer-motion";
-import { useEffect, useRef, useState, type ReactNode, type PointerEvent } from "react";
+import { useRef, type ReactNode, type PointerEvent } from "react";
 import type { Variants } from "framer-motion";
-
-/** Below this, skip scroll-jacked pin animations — mobile browsers'
- *  dynamic toolbar makes `position: sticky` + scroll-progress math
- *  unreliable (pins release early, tracked elements drift). */
-export function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 767px)");
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
-  return isMobile;
-}
 
 /** Shared easing — one curve so every section moves with the same voice. */
 export const EASE = [0.22, 1, 0.36, 1] as const;
