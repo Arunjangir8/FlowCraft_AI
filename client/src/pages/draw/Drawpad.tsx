@@ -6,6 +6,8 @@ import { useNavigate } from "react-router-dom";
 import AiEditPanel from "./ai-edit/AiEditPanel";
 import { useAiEdit } from "./ai-edit/useAiEdit";
 import { lerpPreviewShapes } from "./ai-edit/operations";
+import ExportPreviewModal from "./export/ExportPreviewModal";
+import { renderShapesToCanvas } from "./export/renderExport";
 
 
 export const TOOLS = {
@@ -80,6 +82,8 @@ export interface DrawingPadProps {
     onSave: () => Promise<void>;
     onSync: () => Promise<void>;
     savedToast: boolean;
+    saving?: boolean;
+    syncing?: boolean;
     hasLocalCache: boolean;
     readOnly?: boolean;
     fileId?: string;
@@ -486,7 +490,7 @@ function hitTest(shape: DrawShape, px: number, py: number, all?: DrawShape[]): b
 
 
 
-function drawShape(ctx: CanvasRenderingContext2D, shape: DrawShape, ink: string, skipLabel?: boolean): void {
+export function drawShape(ctx: CanvasRenderingContext2D, shape: DrawShape, ink: string, skipLabel?: boolean): void {
     ctx.save();
     applyShapeRotation(ctx, shape);
     ctx.globalAlpha = shape.opacity ?? 1;
@@ -580,6 +584,27 @@ function drawShape(ctx: CanvasRenderingContext2D, shape: DrawShape, ink: string,
     if (!skipLabel && shape.label && (shape.type === "rect" || shape.type === "ellipse" || shape.type === "diamond")) {
         drawShapeLabelInner(ctx, shape, ink);
     }
+    ctx.restore();
+}
+
+export function drawArrowLabel(ctx: CanvasRenderingContext2D, shape: DrawShape, ink: string, bg: string): void {
+    if (shape.type !== "arrow" || !shape.label) return;
+    const seg = getArrowMidSegmentResolved(shape);
+    const mx = (seg.a.x + seg.b.x) / 2, my = (seg.a.y + seg.b.y) / 2;
+    const fs = shape.labelFontSize ?? 14;
+    const lines = shape.label.split("\n");
+    ctx.save();
+    ctx.font = `${fs}px -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    lines.forEach((line, i) => {
+        const w = ctx.measureText(line).width + 12;
+        const ly = my + (i - (lines.length - 1) / 2) * fs * 1.3;
+        ctx.fillStyle = bg;
+        ctx.fillRect(mx - w / 2, ly - fs * 0.65, w, fs * 1.25);
+        ctx.fillStyle = ink;
+        ctx.fillText(line, mx, ly);
+    });
     ctx.restore();
 }
 
@@ -715,7 +740,7 @@ function Divider({ bg, vertical = false }: { bg: string; vertical?: boolean }) {
 
 
 
-export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoom, setZoom, pan, setPan, onSave, onSync, savedToast, hasLocalCache, readOnly = false, fileId }: DrawingPadProps) {
+export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoom, setZoom, pan, setPan, onSave, onSync, savedToast, saving = false, syncing = false, hasLocalCache, readOnly = false, fileId }: DrawingPadProps) {
     
     const safeBg: BgMode = bgColor === BG_WHITE ? BG_WHITE : BG_BLACK;
     const ink = getInkColor(safeBg);
@@ -764,6 +789,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
     const [resizeHandle, setResizeHandle] = useState<ResizeHandle | null>(null);
     const [justDrawnId, setJustDrawnId] = useState<number | string | null>(null);
     const [showDlMenu, setShowDlMenu] = useState(false);
+    const [exportPreview, setExportPreview] = useState<{ canvas: HTMLCanvasElement; format: "png" | "pdf" } | null>(null);
     const [canvasCursor, setCanvasCursor] = useState("crosshair");
     const navigate = useNavigate();
 
@@ -819,25 +845,7 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
 
         
         resolved.forEach(s => {
-            if (s.type === "arrow" && s.label && s.id !== editingLabelId) {
-                const seg = getArrowMidSegmentResolved(s);
-                const mx = (seg.a.x + seg.b.x) / 2, my = (seg.a.y + seg.b.y) / 2;
-                const fs = s.labelFontSize ?? 14;
-                const lines = s.label.split("\n");
-                octx.save();
-                octx.font = `${fs}px -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif`;
-                octx.textAlign = "center";
-                octx.textBaseline = "middle";
-                lines.forEach((line, i) => {
-                    const w = octx.measureText(line).width + 12;
-                    const ly = my + (i - (lines.length - 1) / 2) * fs * 1.3;
-                    octx.fillStyle = bg;
-                    octx.fillRect(mx - w / 2, ly - fs * 0.65, w, fs * 1.25);
-                    octx.fillStyle = inkNow;
-                    octx.fillText(line, mx, ly);
-                });
-                octx.restore();
-            }
+            if (s.id !== editingLabelId) drawArrowLabel(octx, s, inkNow, bg);
         });
 
         // AI preview highlights: green = created, blue = updated
@@ -1466,19 +1474,23 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
     
     
     
-    const buildExportCanvas = () => {
-        const src = canvasRef.current; if (!src) return null;
-        const out = document.createElement("canvas"); out.width = src.width; out.height = src.height;
-        const ctx = out.getContext("2d")!; ctx.fillStyle = safeBg; ctx.fillRect(0, 0, out.width, out.height); ctx.drawImage(src, 0, 0);
-        return out;
+    const openExportPreview = (format: "png" | "pdf") => {
+        const canvas = renderShapesToCanvas(shapes);
+        if (!canvas) return;
+        setExportPreview({ canvas, format });
     };
-    const exportPNG = () => { const out = buildExportCanvas(); if (!out) return; const a = document.createElement("a"); a.download = "drawing.png"; a.href = out.toDataURL(); a.click(); };
-    const exportPDF = () => {
-        const out = buildExportCanvas(); if (!out) return;
-        const html = `<!doctype html><style>@page{margin:0;size:${out.width}px ${out.height}px;}*{margin:0;padding:0;}body{background:${safeBg};}img{display:block;max-width:100%;}</style><img src="${out.toDataURL()}"/>`;
-        const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
-        const win = window.open(url, "_blank");
-        if (!win) { alert("Allow popups."); URL.revokeObjectURL(url); }
+    const confirmExport = () => {
+        if (!exportPreview) return;
+        const { canvas, format } = exportPreview;
+        if (format === "png") {
+            const a = document.createElement("a"); a.download = "drawing.png"; a.href = canvas.toDataURL(); a.click();
+        } else {
+            const html = `<!doctype html><style>@page{margin:0;size:${canvas.width}px ${canvas.height}px;}*{margin:0;padding:0;}body{background:#fff;}img{display:block;max-width:100%;}</style><img src="${canvas.toDataURL()}"/>`;
+            const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+            const win = window.open(url, "_blank");
+            if (!win) { alert("Allow popups."); URL.revokeObjectURL(url); }
+        }
+        setExportPreview(null);
     };
     const clearAll = useCallback(() => {
         if (!stateRef.current.shapes.length) return;
@@ -1637,12 +1649,12 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                         <div style={{
                             position: "absolute", top: 42, right: 0, ...panelStyle, padding: 4, minWidth: 170, zIndex: 100,
                         }}>
-                            <button onClick={() => { exportPNG(); setShowDlMenu(false); }} style={{
+                            <button onClick={() => { openExportPreview("png"); setShowDlMenu(false); }} style={{
                                 display: "flex", alignItems: "center", gap: 8, width: "100%", background: "transparent",
                                 border: "none", color: ink, padding: "9px 12px", fontSize: 12, cursor: "pointer",
                                 fontFamily: "inherit", textAlign: "left", borderRadius: 8,
                             }}>{Ic.download} Image (PNG)</button>
-                            <button onClick={() => { exportPDF(); setShowDlMenu(false); }} style={{
+                            <button onClick={() => { openExportPreview("pdf"); setShowDlMenu(false); }} style={{
                                 display: "flex", alignItems: "center", gap: 8, width: "100%", background: "transparent",
                                 border: "none", color: ink, padding: "9px 12px", fontSize: 12, cursor: "pointer",
                                 fontFamily: "inherit", textAlign: "left", borderRadius: 8,
@@ -1665,16 +1677,18 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                 <Divider bg={safeBg} vertical />
                 <FloatingBtn label="Clear" bg={safeBg} onClick={clearAll} danger>{Ic.trash}</FloatingBtn>
                 <Divider bg={safeBg} vertical />
-                <button onClick={onSave} style={{
-                    background: savedToast ? "transparent" : "transparent",
+                <button onClick={onSave} disabled={saving} style={{
+                    background: "transparent",
                     border: "none", color: ink, padding: "6px 10px", borderRadius: 8,
-                    fontSize: 11, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s", opacity: savedToast ? 1 : 0.78,
-                }}>{savedToast ? "✓ Saved" : "Save"}</button>
+                    fontSize: 11, cursor: saving ? "default" : "pointer", fontFamily: "inherit", transition: "all 0.15s",
+                    opacity: saving ? 0.5 : savedToast ? 1 : 0.78,
+                }}>{saving ? "Saving…" : savedToast ? "✓ Saved" : "Save"}</button>
                 {hasLocalCache && (
-                    <button onClick={onSync} style={{
+                    <button onClick={() => onSync()} disabled={syncing} style={{
                         background: "transparent", border: "none", color: ink, padding: "6px 10px",
-                        borderRadius: 8, fontSize: 11, cursor: "pointer", fontFamily: "inherit", opacity: 0.78,
-                    }}>↓ Sync</button>
+                        borderRadius: 8, fontSize: 11, cursor: syncing ? "default" : "pointer", fontFamily: "inherit",
+                        opacity: syncing ? 0.5 : 0.78,
+                    }}>{syncing ? "Syncing…" : "↓ Sync"}</button>
                 )}
             </div>
             )}
@@ -1889,6 +1903,17 @@ export default function DrawingPad({ shapes, setShapes, bgColor, setBgColor, zoo
                         border: `1px dashed ${ink}`,
                         padding: 2, zIndex: 60,
                     }}
+                />
+            )}
+
+            {exportPreview && (
+                <ExportPreviewModal
+                    dataUrl={exportPreview.canvas.toDataURL()}
+                    format={exportPreview.format}
+                    panelStyle={panelStyle}
+                    ink={ink}
+                    onConfirm={confirmExport}
+                    onCancel={() => setExportPreview(null)}
                 />
             )}
         </div>

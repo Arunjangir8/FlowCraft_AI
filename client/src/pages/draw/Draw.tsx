@@ -35,6 +35,8 @@ export default function DrawingPadPage() {
     const [pan,           setPan]           = useState<Point>      (_saved.pan     ?? { x: 0, y: 0 });
     const [savedToast,    setSavedToast]    = useState(false);
     const [hasLocalCache, setHasLocalCache] = useState(!!_saved.shapes);
+    const [saving,        setSaving]        = useState(false);
+    const [syncing,       setSyncing]       = useState(false);
 
     const shapesRef  = useRef(shapes);
     const bgColorRef = useRef(bgColor);
@@ -116,7 +118,8 @@ export default function DrawingPadPage() {
     }, [shapes, bgColor, zoom, pan, persistLocal]);
 
     const onSave = async () => {
-        if (!fileId) return;
+        if (!fileId || saving) return;
+        setSaving(true);
         try {
             await http.private.post("/drawing/save", {
                 fileId, shapes, bgColor, zoom, panX: pan.x, panY: pan.y,
@@ -130,20 +133,24 @@ export default function DrawingPadPage() {
         } catch (err) {
             console.error("Save failed", err);
             alert(err instanceof Error ? err.message : "Save failed");
+        } finally {
+            setSaving(false);
         }
     };
 
     const onSync = async (isInitialLoad = false) => {
-        if (!fileId) return;
+        if (!fileId || syncing) return;
+        setSyncing(true);
         let res;
         try {
             res = await http.private.get<{ success: boolean; data: any }>(`/drawing/file/${fileId}`);
         } catch (err) {
             console.error("Sync failed", err);
+            setSyncing(false);
             return;
         }
         const drawing = res.data?.data ?? res.data;
-        if (!drawing) return;
+        if (!drawing) { setSyncing(false); return; }
         const newShapes = drawing.shapesJson || [];
         const newBg     = drawing.bgColor    || "#0d1117";
         const newZoom   = drawing.zoom       || 1;
@@ -158,6 +165,7 @@ export default function DrawingPadPage() {
         setPan(newPan);
         persistLocal({ shapes: newShapes, bgColor: resolvedBg, zoom: newZoom, pan: newPan });
         setHasLocalCache(true);
+        setSyncing(false);
     };
 
     const createNewFile = useCallback(async () => {
@@ -201,6 +209,8 @@ export default function DrawingPadPage() {
             onSave={onSave}
             onSync={onSync}
             savedToast={savedToast}
+            saving={saving}
+            syncing={syncing}
             hasLocalCache={hasLocalCache}
             readOnly={isMobile}
             fileId={fileId}
