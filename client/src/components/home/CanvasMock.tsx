@@ -13,7 +13,6 @@ const draw = (delay: number) => ({
   },
 });
 
-// For icons/labels that fade+lift in once their shape has finished drawing.
 const fadeUp = (delay: number) => ({
   hidden: { opacity: 0, y: 6 },
   visible: {
@@ -23,11 +22,6 @@ const fadeUp = (delay: number) => ({
   },
 });
 
-// Plain opacity fade, no pathLength. Framer Motion implements the `draw`
-// variant above by driving stroke-dasharray/-dashoffset itself, which
-// silently overrides any dasharray we set on the element — so anything
-// that needs to actually render dashed (the AI node's border) has to
-// fade in instead of "draw" in.
 const fadeIn = (delay: number) => ({
   hidden: { opacity: 0 },
   visible: {
@@ -76,21 +70,9 @@ function Cursor({
   );
 }
 
-/**
- * Faux app window whose shapes draw themselves in — the product,
- * demonstrated instead of screenshotted.
- *
- * The canvas draws an actual small workflow (signup → plan check →
- * welcome email / AI-suggested nurture branch → notify team) so the
- * demo reads as a real automation, not a placeholder box-and-arrow
- * diagram. The dashed, accent-colored node is the one the AI just
- * added — the hand-drawn coral circle is the user calling it out,
- * which is what the caption pill below is narrating.
- */
 export default function CanvasMock() {
   return (
     <div className="relative overflow-hidden rounded-2xl border border-line bg-white shadow-[0_32px_80px_-32px_rgba(26,25,23,0.35)]">
-      {/* window chrome */}
       <div className="flex h-11 items-center justify-between border-b border-line px-4">
         <div className="flex gap-1.5">
           {["#e8e6dd", "#e8e6dd", "#e8e6dd"].map((c, i) => (
@@ -104,7 +86,6 @@ export default function CanvasMock() {
         </span>
       </div>
 
-      {/* canvas */}
       <div
         className="relative aspect-[16/9] w-full"
         style={{
@@ -120,7 +101,6 @@ export default function CanvasMock() {
           viewport={{ once: true, margin: "-100px" }}
           aria-hidden
         >
-          {/* ---- trigger: "New signup" ---- */}
           <motion.rect
             x="40" y="188" width="170" height="64" rx="32"
             fill="none" stroke="var(--color-ink)" strokeWidth="2.5"
@@ -132,14 +112,12 @@ export default function CanvasMock() {
             <text x="84" y="225" fontSize="13" fontWeight="600" fill="var(--color-ink)">New signup</text>
           </motion.g>
 
-          {/* connector: trigger -> condition */}
           <motion.path
             d="M210 220h45m0 0l-11-8m11 8l-11 8"
             fill="none" stroke="var(--color-ink-soft)" strokeWidth="2.5" strokeLinecap="round"
             variants={draw(0.5)}
           />
 
-          {/* ---- condition: "Plan = Pro?" ---- */}
           <motion.path
             d="M330 168l75 52-75 52-75-52z"
             fill="none" stroke="var(--color-ink)" strokeWidth="2.5" strokeLinejoin="round"
@@ -156,7 +134,6 @@ export default function CanvasMock() {
             <text x="330" y="238" textAnchor="middle" fontSize="13" fontWeight="600" fill="var(--color-ink)">Plan = Pro?</text>
           </motion.g>
 
-          {/* connector: condition -> welcome email (yes) */}
           <motion.path
             d="M405 220C448 205 450 140 480 130"
             fill="none" stroke="var(--color-ink-soft)" strokeWidth="2.5" strokeLinecap="round"
@@ -164,7 +141,6 @@ export default function CanvasMock() {
           />
           <motion.text x="432" y="178" fontSize="10" fill="var(--color-ink-faint)" variants={fadeUp(1.6)}>yes</motion.text>
 
-          {/* connector: condition -> trial nurture (no) */}
           <motion.path
             d="M405 220C448 235 450 300 480 310"
             fill="none" stroke="var(--color-ink-soft)" strokeWidth="2.5" strokeLinecap="round"
@@ -172,7 +148,6 @@ export default function CanvasMock() {
           />
           <motion.text x="432" y="262" fontSize="10" fill="var(--color-ink-faint)" variants={fadeUp(1.6)}>no</motion.text>
 
-          {/* ---- action: "Send welcome email" ---- */}
           <motion.rect
             x="480" y="98" width="210" height="64" rx="14"
             fill="none" stroke="var(--color-ink)" strokeWidth="2.5"
@@ -187,7 +162,6 @@ export default function CanvasMock() {
             <text x="524" y="134" fontSize="13" fontWeight="600" fill="var(--color-ink)">Send welcome email</text>
           </motion.g>
 
-          {/* ---- AI-suggested action: "Start trial nurture" ---- */}
           <motion.rect
             x="480" y="278" width="210" height="64" rx="14"
             fill="none" stroke="var(--color-accent)" strokeWidth="2.5" strokeDasharray="6 5"
@@ -201,9 +175,6 @@ export default function CanvasMock() {
             <text x="524" y="314" fontSize="13" fontWeight="600" fill="var(--color-ink)">Start trial nurture</text>
           </motion.g>
 
-          {/* hand-drawn callout around the AI node — a slightly imperfect
-              ellipse (not a true bezier circle) so it reads as sketched,
-              sized to sit just outside the 480,278 210x64 rect */}
           <motion.path
             d="M708 310
                C706 335 654 351 583 350
@@ -214,7 +185,6 @@ export default function CanvasMock() {
             variants={draw(2.1)}
           />
 
-          {/* connectors: both actions merge into "Notify team" */}
           <motion.path
             d="M690 130C725 130 720 190 694 205"
             fill="none" stroke="var(--color-ink-soft)" strokeWidth="2.5" strokeLinecap="round"
@@ -226,7 +196,6 @@ export default function CanvasMock() {
             variants={draw(1.65)}
           />
 
-          {/* ---- merge: "Notify team" ---- */}
           <motion.rect
             x="690" y="188" width="100" height="64" rx="32"
             fill="none" stroke="var(--color-ink)" strokeWidth="2.5"
@@ -241,8 +210,6 @@ export default function CanvasMock() {
             <text x="726" y="238" fontSize="11" fontWeight="600" fill="var(--color-ink)">team</text>
           </motion.g>
 
-          {/* soft highlight pulse behind the AI node, kept tight so it
-              doesn't bleed into the diamond or the Notify node */}
           <motion.ellipse
             cx="585" cy="310" rx="0" ry="0" fill="var(--color-accent)" opacity="0.07"
             variants={{
@@ -265,7 +232,6 @@ export default function CanvasMock() {
           delay={1.4}
         />
 
-        {/* AI pill */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}

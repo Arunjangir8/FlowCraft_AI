@@ -25,12 +25,8 @@ const links = [
   { label: "FAQ", href: "#faq" },
 ];
 
-const NAV_H = 64; // h-16
+const NAV_H = 64;
 
-/** Absolute document top via the offsetParent chain. WARNING: a
- *  `position: sticky` element's own offsetTop reports its *stuck* offset in
- *  Chrome (scroll-dependent), so never pass a sticky node here — pass a
- *  statically-positioned ancestor instead. */
 function absoluteTop(el: HTMLElement) {
   let top = 0;
   let node: HTMLElement | null = el;
@@ -41,20 +37,10 @@ function absoluteTop(el: HTMLElement) {
   return top;
 }
 
-/**
- * Scroll target for a nav hash. Sections inside SheetStack are vertically
- * centered in a full-height, `sticky` "sheet"; a plain anchor jump targets
- * the inner section's mid-sheet position, fights the pin, and lands on the
- * wrong sheet. We want the sheet's *flow* top — but a sticky element's
- * offsetTop/rect both report its current stuck position, which drifts with
- * scroll and makes the scroll "walk" toward the target over several clicks.
- * So build it from scroll-stable numbers: the non-sticky SheetStack
- * container's absolute top + the summed heights of the preceding sheets.
- */
 function targetTop(el: HTMLElement) {
   const sheet = el.closest("[data-sheet]") as HTMLElement | null;
   const container = sheet?.parentElement;
-  if (!sheet || !container) return absoluteTop(el); // non-stacked (e.g. #faq)
+  if (!sheet || !container) return absoluteTop(el);
   let flow = 0;
   for (const child of container.children) {
     if (child === sheet) break;
@@ -65,7 +51,7 @@ function targetTop(el: HTMLElement) {
 
 function scrollToHash(e: MouseEvent<HTMLAnchorElement>, href: string) {
   const el = document.getElementById(href.slice(1));
-  if (!el) return; // no target → let the browser do its default thing
+  if (!el) return;
   e.preventDefault();
   window.scrollTo({ top: targetTop(el) - NAV_H, behavior: "smooth" });
 }

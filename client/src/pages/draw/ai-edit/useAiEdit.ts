@@ -23,6 +23,11 @@ const LOADING_MESSAGES = [
 
 const TIMEOUT_MS = 60_000;
 
+const ERROR_TEXT: Record<string, string> = {
+    NOT_AN_AI_FILE: "AI editing is only available on AI files. Create a file with an AI prompt to use it.",
+    AI_CALL_LIMIT_EXCEEDED: "You've reached the AI limit for this file (20 requests).",
+};
+
 export function useAiEdit(fileId?: string) {
     const [phase, setPhase] = useState<AiEditPhase>("idle");
     const [message, setMessage] = useState("");
@@ -95,9 +100,8 @@ export function useAiEdit(fileId?: string) {
         } catch (e) {
             if (seq !== reqSeq.current) return;
             setPhase("error");
-            setError(e instanceof Error && e.message
-                ? e.message
-                : "Something went wrong. Your drawing is unchanged.");
+            const raw = e instanceof Error ? e.message : "";
+            setError(ERROR_TEXT[raw] || raw || "Something went wrong. Your drawing is unchanged.");
         }
     }, [fileId]);
 

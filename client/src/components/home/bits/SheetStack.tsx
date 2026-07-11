@@ -8,22 +8,11 @@ import {
   type RefObject,
 } from "react";
 
-/**
- * Sketchbook scroll transition: each child section is a "sheet of paper".
- * A sheet pins while the next sheet slides up and covers it; the covered
- * sheet settles back into the pad — scaled down, dimmed, with a hint of
- * paper tilt. Sheets taller than the viewport pin with a negative top
- * offset (`min(0, 100dvh - height)`) so they can be read in full first.
- * Plain scrolling — no pinning tricks beyond position: sticky.
- */
 export default function SheetStack({
   children,
   bareSheets = [],
 }: {
   children: ReactNode[];
-  /** Indices rendered without the paper chrome (transparent, no rounded
-   *  edge/shadow) — the sheet's own content is what covers the previous
-   *  one, e.g. a dark panel with page background around it. */
   bareSheets?: number[];
 }) {
   const sheets = children.filter(Boolean);
@@ -75,8 +64,6 @@ function Sheet({
     return () => ro.disconnect();
   }, [ref]);
 
-  // How far the NEXT sheet has travelled up the viewport = how covered
-  // this sheet is. The last sheet has no cover, so its transforms stay off.
   const { scrollYProgress: covered } = useScroll({
     target: nextRef ?? ref,
     offset: ["start end", "start start"],

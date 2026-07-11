@@ -1,14 +1,22 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
+import { APIError, HttpStatusCode } from "../shared/api-error";
+
+// Lifetime cap on total owned files per user.
+const FILE_LIMIT = 12;
+// Lifetime cap on AI files per user.
+const AI_FILE_LIMIT = 3;
 
 class FileSaveService {
   async createFile(
     userId: string,
     type: "DRAWING" | "MARKDOWN",
     title?: string,
-    reuseBlank: boolean = true
+    reuseBlank: boolean = true,
+    isAiFile: boolean = false
   ) {
-    if (reuseBlank && type === "DRAWING") {
+    // AI files are always created fresh (never reuse a shared blank).
+    if (reuseBlank && !isAiFile && type === "DRAWING") {
       const existingBlank = await prisma.file.findFirst({
         where: {
           ownerId: userId,
@@ -26,12 +34,30 @@ class FileSaveService {
       if (existingBlank) return existingBlank;
     }
 
+    const fileCount = await prisma.file.count({
+      where: { ownerId: userId, deletedAt: null },
+    });
+    if (fileCount >= FILE_LIMIT) {
+      throw new APIError({
+        message: "FILE_LIMIT_EXCEEDED",
+        httpCode: HttpStatusCode.TOO_MANY_REQUESTS,
+      });
+    }
+
+    if (isAiFile && (await this.countAiFiles(userId)) >= AI_FILE_LIMIT) {
+      throw new APIError({
+        message: "AI_FILE_LIMIT_EXCEEDED",
+        httpCode: HttpStatusCode.TOO_MANY_REQUESTS,
+      });
+    }
+
     return prisma.$transaction(async (tx) => {
       const file = await tx.file.create({
         data: {
           ownerId: userId,
           title: title ?? (type === "DRAWING" ? "Untitled Drawing" : "Untitled Doc"),
           type,
+          isAiFile,
         },
       });
 
@@ -131,20 +157,34 @@ class FileSaveService {
   }
 
   async countAiFiles(userId: string): Promise<number> {
-    const rows = await prisma.aiConversationSession.findMany({
-      where: { userId, fileId: { not: null }, deletedAt: null },
-      select: { fileId: true },
-      distinct: ["fileId"],
+    return prisma.file.count({
+      where: { ownerId: userId, isAiFile: true, deletedAt: null },
     });
-    return rows.length;
   }
 
-  async fileHasAiSession(userId: string, fileId: string): Promise<boolean> {
-    const session = await prisma.aiConversationSession.findFirst({
-      where: { userId, fileId, deletedAt: null },
-      select: { id: true },
+  async markFileAsAi(fileId: string): Promise<void> {
+    await prisma.file.update({
+      where: { id: fileId },
+      data: { isAiFile: true },
     });
-    return session !== null;
+  }
+
+  async isFileAi(fileId: string): Promise<boolean> {
+    const file = await prisma.file.findUnique({
+      where: { id: fileId },
+      select: { isAiFile: true },
+    });
+    return file?.isAiFile ?? false;
+  }
+
+  // Dedicated counter column (not derived from message count) tracking
+  // completed AI interactions in a file, across both /ai/sendMessage and /ai/edit.
+  async getAiCallsUsed(fileId: string): Promise<number> {
+    const file = await prisma.file.findUnique({
+      where: { id: fileId },
+      select: { aiCallsUsed: true },
+    });
+    return file?.aiCallsUsed ?? 0;
   }
 
   private async assertCanView(fileId: string, userId: string) {

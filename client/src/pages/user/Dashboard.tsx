@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { http } from "../../services/http";
 import { useAuth } from "../../components/Auth/AuthContext";
@@ -12,13 +12,15 @@ type FileData = {
   id: string;
   title: string;
   updatedAt: string;
+  isAiFile?: boolean;
+  aiCallsUsed?: number;
   drawing?: {
     bgColor: string;
     updatedAt: string;
   };
 };
 
-const AI_FILE_LIMIT = 2;
+const AI_FILE_LIMIT = 3;
 const AI_LIMIT_CONTACT = "arunjangir9987@gmail.com";
 
 export default function Dashboard() {
@@ -28,6 +30,7 @@ export default function Dashboard() {
   const [showModal, setShowModal] = useState(false);
   const [showLimitModal, setShowLimitModal] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
+  const [aiFile, setAiFile] = useState(false);
   const [creating, setCreating] = useState(false);
 
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -65,8 +68,12 @@ export default function Dashboard() {
     }
   };
 
-  const handleCreateFile = async () => {
-    if (aiPrompt.trim() && aiFilesUsed >= AI_FILE_LIMIT) {
+  const handleCreateFile = async (opts?: { plain?: boolean }) => {
+    // A prompt or a checked box both mean "make this an AI file".
+    const promptText = opts?.plain ? "" : aiPrompt.trim();
+    const wantAi = opts?.plain ? false : aiFile || !!promptText;
+
+    if (wantAi && aiFilesUsed >= AI_FILE_LIMIT) {
       setShowModal(false);
       setShowLimitModal(true);
       return;
@@ -77,25 +84,28 @@ export default function Dashboard() {
 
       const res = await http.private.post<{ success: boolean; data: { id: string } }>(
         "/drawing/create",
-        { title: "Untitled Drawing" }
+        { title: "Untitled Drawing", isAiFile: wantAi }
       );
 
       const newFileId = res.data?.id;
       if (!newFileId) throw new Error("Failed to create file");
 
-      if (aiPrompt.trim()) {
+      if (promptText) {
         await http.private.post("/ai/sendMessage", {
           fileId: newFileId,
-          message: aiPrompt,
+          message: promptText,
         });
-        setAiFilesUsed((prev) => prev + 1);
       }
+      if (wantAi) setAiFilesUsed((prev) => prev + 1);
 
       navigate(`/draw/${newFileId}`);
     } catch (err: any) {
       if (err?.message === "AI_FILE_LIMIT_EXCEEDED") {
         setShowModal(false);
         setShowLimitModal(true);
+      } else if (err?.message === "FILE_LIMIT_EXCEEDED") {
+        setShowModal(false);
+        alert("You've reached the maximum of 12 files. Delete one to create more.");
       } else {
         console.error("Error creating file", err);
         alert("Failed to create file. Please try again.");
@@ -103,6 +113,8 @@ export default function Dashboard() {
     } finally {
       setCreating(false);
       setShowModal(false);
+      setAiPrompt("");
+      setAiFile(false);
     }
   };
 
@@ -157,6 +169,12 @@ export default function Dashboard() {
               </h1>
             </div>
             <div className="flex items-center gap-3">
+              <Link
+                to="/ai-usage"
+                className="inline-flex h-13 items-center rounded-full border border-line px-6 text-[15px] font-medium text-ink-soft transition-colors duration-300 hover:border-ink hover:text-ink outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                AI usage
+              </Link>
               <button
                 onClick={handleLogout}
                 className="inline-flex h-13 items-center rounded-full border border-line px-6 text-[15px] font-medium text-ink-soft transition-colors duration-300 hover:border-ink hover:text-ink outline-none focus-visible:ring-2 focus-visible:ring-accent"
@@ -210,6 +228,15 @@ export default function Dashboard() {
                   >
                     ✕
                   </button>
+
+                  {file.isAiFile && (
+                    <span
+                      title="AI file"
+                      className="absolute top-2 left-2 z-10 flex items-center gap-1 rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-semibold text-accent"
+                    >
+                      ✨ AI
+                    </span>
+                  )}
 
                   <div
                     onClick={() => navigate(`/draw/${file.id}`)}
@@ -335,10 +362,7 @@ export default function Dashboard() {
                   Got it
                 </button>
                 <button
-                  onClick={() => {
-                    setAiPrompt("");
-                    handleCreateFile();
-                  }}
+                  onClick={() => handleCreateFile({ plain: true })}
                   disabled={creating}
                   className="w-full rounded-full border border-line py-2.5 text-sm font-medium text-ink transition-colors duration-300 hover:border-ink"
                 >
@@ -377,8 +401,19 @@ export default function Dashboard() {
                 value={aiPrompt}
                 onChange={(e) => setAiPrompt(e.target.value)}
                 placeholder="E.g., A flowchart for a user login process…"
-                className="mb-5 min-h-[90px] w-full resize-y rounded-xl border border-line bg-white/60 p-3 text-sm text-ink placeholder:text-ink-faint backdrop-blur transition-colors duration-300 focus:border-ink focus:outline-none sm:min-h-[100px]"
+                className="mb-4 min-h-[90px] w-full resize-y rounded-xl border border-line bg-white/60 p-3 text-sm text-ink placeholder:text-ink-faint backdrop-blur transition-colors duration-300 focus:border-ink focus:outline-none sm:min-h-[100px]"
               />
+
+              <label className="mb-5 flex cursor-pointer items-center gap-2 text-sm text-ink-soft">
+                <input
+                  type="checkbox"
+                  checked={aiFile || !!aiPrompt.trim()}
+                  disabled={!!aiPrompt.trim()}
+                  onChange={(e) => setAiFile(e.target.checked)}
+                  className="h-4 w-4 accent-accent"
+                />
+                Make this an AI file (enables canvas AI editing)
+              </label>
 
               <div className="flex gap-3">
                 <button
@@ -389,7 +424,7 @@ export default function Dashboard() {
                   Cancel
                 </button>
                 <button
-                  onClick={handleCreateFile}
+                  onClick={() => handleCreateFile()}
                   disabled={creating}
                   className="flex-1 rounded-full bg-ink py-2.5 text-sm font-medium text-paper transition-colors duration-300 hover:bg-accent disabled:opacity-50"
                 >
@@ -397,6 +432,8 @@ export default function Dashboard() {
                     ? "Creating…"
                     : aiPrompt.trim()
                     ? "Generate & create"
+                    : aiFile
+                    ? "Create AI file"
                     : "Create empty"}
                 </button>
               </div>

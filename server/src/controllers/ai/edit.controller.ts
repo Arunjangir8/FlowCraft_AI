@@ -4,7 +4,9 @@ import { APIError, HttpStatusCode } from '../../shared/api-error';
 import { saveAiMessage } from '../../utils/functions';
 import { Request, Response, NextFunction } from "express";
 
-const MAX_SHAPES = 2000;
+const MAX_SHAPES = 1000;
+// Max AI interactions (sendMessage + edit) allowed per file.
+const AI_CALL_LIMIT = 20;
 
 export const editDrawing = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -54,10 +56,24 @@ export const editDrawing = async (req: Request, res: Response, next: NextFunctio
       });
     }
 
-    // AI file quota intentionally disabled for /ai/edit. To re-enable, mirror
-    // the check in sendMessage.controller.ts (fileHasAiSession + countAiFiles).
+    // Canvas AI is only for AI files.
+    if (!(await fileSaveService.isFileAi(fileId))) {
+      throw new APIError({
+        message: "NOT_AN_AI_FILE",
+        httpCode: HttpStatusCode.FORBIDDEN,
+      });
+    }
 
-    const sessionId = await saveAiMessage({
+    // Per-file AI-call cap (shared with /ai/sendMessage).
+    const aiCallsUsed = await fileSaveService.getAiCallsUsed(fileId);
+    if (aiCallsUsed >= AI_CALL_LIMIT) {
+      throw new APIError({
+        message: "AI_CALL_LIMIT_EXCEEDED",
+        httpCode: HttpStatusCode.TOO_MANY_REQUESTS,
+      });
+    }
+
+    await saveAiMessage({
       fileId,
       content: instruction,
       role: 'user',
@@ -81,7 +97,7 @@ export const editDrawing = async (req: Request, res: Response, next: NextFunctio
       .map((op) => (op as { shape: unknown }).shape);
 
     await saveAiMessage({
-      sessionId,
+      fileId,
       userId: user.id,
       role: 'assistant',
       content: result.message,
@@ -94,6 +110,7 @@ export const editDrawing = async (req: Request, res: Response, next: NextFunctio
       message: result.message,
       operations: result.operations,
       dropped: result.dropped,
+      aiCallsRemaining: Math.max(0, AI_CALL_LIMIT - (aiCallsUsed + 1)),
     });
 
   } catch (err) {

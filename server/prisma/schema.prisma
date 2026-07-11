@@ -67,8 +67,8 @@ model User {
   receivedInvitations FileInvitation[]     @relation("InvitationReceiver")
   fileCopies          FileCopy[]           @relation("CopiedBy")
 
-  aiSessions          AiConversationSession[]
-  aiUsage             AiUsage[]
+  aiMessages          AiMessage[]
+  aiUsage             AiUsage?
 
   @@index([email])
   @@index([deletedAt])
@@ -180,6 +180,9 @@ model File {
   type         FileType  @default(DRAWING)
   thumbnailUrl String?
 
+  isAiFile     Boolean   @default(false)
+  aiCallsUsed  Int       @default(0)
+
   sizeBytes    Int       @default(0)
 
   createdAt DateTime  @default(now())
@@ -192,7 +195,7 @@ model File {
   shareConfig    FileShareConfig?
   collaborators  FileCollaborator[]
   invitations    FileInvitation[]
-  aiSessions     AiConversationSession[]
+  aiMessages     AiMessage[]
 
   copies         FileCopy[] @relation("OriginalFile")
   copiedFrom     FileCopy?  @relation("CopiedFile")
@@ -299,34 +302,11 @@ model FileCopy {
   @@index([copiedByUserId])
 }
 
-model AiConversationSession {
-  id      String  @id @default(cuid())
-  userId  String
-
-  fileId  String?
-
-  title   String  @default("New Chat")
-
-  summary String? @db.Text
-
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-
-  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  file     File?      @relation(fields: [fileId], references: [id], onDelete: SetNull)
-
-  messages AiMessage[]
-
-  @@index([userId])
-  @@index([fileId])
-  @@index([deletedAt])
-}
-
 model AiMessage {
   id        String        @id @default(cuid())
 
-  sessionId String
+  fileId    String
+  userId    String
   role      AiMessageRole
 
   content   String        @db.Text
@@ -340,24 +320,24 @@ model AiMessage {
 
   createdAt DateTime @default(now())
 
-  session AiConversationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  file File @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([sessionId])
+  @@index([fileId])
+  @@index([userId])
   @@index([createdAt])
 }
 
 model AiUsage {
   id               String   @id @default(cuid())
-  userId           String
-  year             Int
+  userId           String   @unique
 
-  month            Int
   generationsUsed  Int      @default(0)
   chatsUsed        Int      @default(0)
   updatedAt        DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, year, month])
   @@index([userId])
+  createdAt DateTime @default(now())
 }

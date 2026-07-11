@@ -4,6 +4,9 @@ import { APIError, HttpStatusCode } from '../../shared/api-error';
 import { saveAiMessage } from '../../utils/functions';
 import { Request, Response, NextFunction } from "express";
 
+// Per-file AI-call cap (shared with /ai/edit).
+const AI_CALL_LIMIT = 20;
+
 
 export const sendMessage = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -46,18 +49,28 @@ export const sendMessage = async (req: Request, res: Response, next: NextFunctio
       });
     }
 
-    const isNewAiFile = !(await fileSaveService.fileHasAiSession(user.id, fileId));
+    const isNewAiFile = !(await fileSaveService.isFileAi(fileId));
     if (isNewAiFile) {
       const aiFileCount = await fileSaveService.countAiFiles(user.id);
-      if (aiFileCount >= 2) {
+      if (aiFileCount >= 3) {
         throw new APIError({
           message: "AI_FILE_LIMIT_EXCEEDED",
           httpCode: HttpStatusCode.TOO_MANY_REQUESTS,
         });
       }
+      await fileSaveService.markFileAsAi(fileId);
     }
 
-    const resolvedSessionId = await saveAiMessage({
+    // Per-file AI-call cap (shared with /ai/edit). New AI files start at 0.
+    const aiCallsUsed = await fileSaveService.getAiCallsUsed(fileId);
+    if (aiCallsUsed >= AI_CALL_LIMIT) {
+      throw new APIError({
+        message: "AI_CALL_LIMIT_EXCEEDED",
+        httpCode: HttpStatusCode.TOO_MANY_REQUESTS,
+      });
+    }
+
+    await saveAiMessage({
       fileId,
       content: message,
       role: 'user',
@@ -73,7 +86,7 @@ export const sendMessage = async (req: Request, res: Response, next: NextFunctio
     })
 
     await saveAiMessage({
-      sessionId: resolvedSessionId,
+      fileId,
       userId: user.id,
       role: 'assistant',
       content: agentResult.reply,
@@ -105,6 +118,7 @@ export const sendMessage = async (req: Request, res: Response, next: NextFunctio
             : agentResult.allShapes
           : null,
       },
+      aiCallsRemaining: Math.max(0, AI_CALL_LIMIT - (aiCallsUsed + 1)),
       ...(autoTitle && { newTitle: autoTitle }),
       ...(agentResult.mermaidDiagram && {
         mermaidDiagram: agentResult.mermaidDiagram,
